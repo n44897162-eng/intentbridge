@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "IntentBridge",
+  "version": "0.1.0",
+  "description": "本地录制与确定性重放；不连接任何云端服务。",
+  "minimum_chrome_version": "116",
+  "action": { "default_title": "IntentBridge", "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self'"
+  }
+}

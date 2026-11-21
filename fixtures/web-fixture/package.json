@@ -1,0 +1,11 @@
+{
+  "name": "@intentbridge/web-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Controllable web application fixture with switchable DOM drift variants",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs"
+  }
+}

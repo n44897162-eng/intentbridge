@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "33333333-3333-4333-8333-333333333333",
+  "name": "Web 语义漂移流程",
+  "description": "仅依赖语义锚点的流程，用于漂移重锚语料；不绑定测试 id 或绝对路径。",
+  "platform": "web",
+  "app_scope": { "kind": "web-origin", "value": "http://127.0.0.1:4317" },
+  "variables": [{ "name": "keyword", "type": "string", "required": true }],
+  "permissions": ["read-ui", "read-screen", "click", "type", "launch", "navigate"],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "打开页面",
+      "risk": "normal",
+      "timeout_ms": 8000,
+      "postconditions": [{ "kind": "window-stable", "min_stable_ms": 100 }],
+      "params": {
+        "app_id": "http://127.0.0.1:4317",
+        "url": "http://127.0.0.1:4317/",
+        "wait_ready": true
+      }
+    },
+    {
+      "id": "type-keyword",
+      "action": "input",
+      "name": "输入关键词",
+      "risk": "normal",
+      "timeout_ms": 4000,
+      "target": {
+        "anchors": {
+          "semantic": { "role": "textbox", "name": "搜索" }
+        }
+      },
+      "postconditions": [{ "kind": "window-stable", "min_stable_ms": 120 }],
+      "params": { "value": "${keyword}", "clear_first": true }
+    },
+    {
+      "id": "submit",
+      "action": "click",
+      "name": "提交查询",
+      "risk": "normal",
+      "timeout_ms": 4000,
+      "target": {
+        "anchors": {
+          "semantic": { "role": "button", "name": "搜索" }
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "text-matches",
+          "target": { "anchors": { "semantic": { "role": "status" } } },
+          "matcher": { "type": "contains", "value": "找到", "case_sensitive": false }
+        }
+      ],
+      "params": { "button": "left", "click_count": 1 }
+    },
+    {
+      "id": "done",
+      "action": "end",
+      "name": "完成",
+      "params": { "status": "success" }
+    }
+  ],
+  "created_by": "fixture-web",
+  "revision": 1,
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "updated_at": "2026-01-01T00:00:00.000Z",
+  "labels": { "suite": "drift" }
+}

@@ -1,0 +1,75 @@
+{
+  "version": "1.0.0",
+  "description": "UI drift acceptance corpus. Each case injects one controlled layout/identity change and records whether the engine auto-executed, asked for confirmation, or refused.",
+  "cases": [
+    {
+      "id": "baseline",
+      "variant": "baseline",
+      "flow": "golden",
+      "expect": "auto_success",
+      "expected_button_test_id": "search-submit",
+      "expected_input_test_id": "keyword-input"
+    },
+    {
+      "id": "moved-container",
+      "variant": "moved",
+      "flow": "golden",
+      "expect": "auto_success",
+      "expected_button_test_id": "search-submit",
+      "expected_input_test_id": "keyword-input"
+    },
+    {
+      "id": "shifted-layout",
+      "variant": "visual",
+      "flow": "golden",
+      "expect": "auto_success",
+      "expected_button_test_id": "search-submit",
+      "expected_input_test_id": "keyword-input"
+    },
+    {
+      "id": "slow-results",
+      "variant": "slow",
+      "flow": "golden",
+      "expect": "auto_success",
+      "expected_button_test_id": "search-submit",
+      "expected_input_test_id": "keyword-input"
+    },
+    {
+      "id": "relabeled-test-ids",
+      "variant": "relabeled",
+      "flow": "semantic",
+      "expect": "manual_success",
+      "expected_button_test_id": "search-submit-v2",
+      "expected_input_test_id": "keyword-field"
+    },
+    {
+      "id": "random-ids",
+      "variant": "random-ids",
+      "flow": "semantic",
+      "expect": "manual_success",
+      "expected_button_name": "搜索",
+      "expected_input_name": "搜索"
+    },
+    {
+      "id": "decoy-button",
+      "variant": "decoy",
+      "flow": "semantic",
+      "expect": "manual_success",
+      "expected_button_test_id": "search-submit"
+    },
+    {
+      "id": "renamed-controls-refused",
+      "variant": "renamed",
+      "flow": "semantic",
+      "expect": "no_execution",
+      "note": "No evidence matches the recorded semantics: refusal is the correct outcome."
+    },
+    {
+      "id": "golden-after-rename-refused",
+      "variant": "renamed",
+      "flow": "golden",
+      "expect": "no_execution",
+      "note": "The golden flow's native ids and labels are gone; nothing may be clicked."
+    }
+  ]
+}

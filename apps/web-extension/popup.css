@@ -1,0 +1,165 @@
+:root {
+  color-scheme: light;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Noto Sans SC',
+    sans-serif;
+  --ink: #152238;
+  --muted: #66758c;
+  --line: #dde4ef;
+  --brand: #2457d6;
+  --danger: #b42318;
+  background: #f5f7fb;
+  color: var(--ink);
+}
+body {
+  margin: 0;
+  width: 392px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding: 14px;
+  background: #f5f7fb;
+}
+header {
+  margin-bottom: 10px;
+}
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #3b74ff, #6ea0ff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+.url {
+  margin: 8px 0 10px;
+  word-break: break-all;
+}
+.tiny {
+  font-size: 11px;
+}
+.small {
+  font-size: 12px;
+}
+.muted {
+  color: var(--muted);
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+.between {
+  justify-content: space-between;
+}
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f8;
+  color: var(--muted);
+  font-size: 11px;
+}
+.badge.running,
+.badge.paused,
+.badge.recording {
+  background: #e9efff;
+  color: var(--brand);
+}
+.badge.finished {
+  background: #e4f5ec;
+  color: #177245;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink);
+}
+button:hover {
+  border-color: #b9c6da;
+}
+button.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+button.danger {
+  color: var(--danger);
+  border-color: #f1c6c2;
+  background: #fff7f6;
+}
+h3 {
+  font-size: 13px;
+  margin: 16px 0 8px;
+  color: var(--muted);
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.card.warning {
+  border-color: #f0d6a8;
+  background: #fffaf0;
+}
+.card p {
+  margin: 6px 0;
+}
+.card .candidate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin-top: 6px;
+  text-align: left;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+.field input[type='text'],
+.field input[type='password'] {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+}
+.run-form {
+  margin-top: 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+.error {
+  color: var(--danger);
+}
+footer {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}

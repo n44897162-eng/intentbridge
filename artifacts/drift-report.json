@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-11-21T20:17:03.474Z",
+  "cases": [
+    {
+      "id": "baseline",
+      "variant": "baseline",
+      "expect": "auto_success",
+      "classified": "auto_success",
+      "manual": false,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-input",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "moved-container",
+      "variant": "moved",
+      "expect": "auto_success",
+      "classified": "auto_success",
+      "manual": false,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-input",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "shifted-layout",
+      "variant": "visual",
+      "expect": "auto_success",
+      "classified": "auto_success",
+      "manual": false,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-input",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "slow-results",
+      "variant": "slow",
+      "expect": "auto_success",
+      "classified": "auto_success",
+      "manual": false,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-input",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "relabeled-test-ids",
+      "variant": "relabeled",
+      "expect": "manual_success",
+      "classified": "manual_success",
+      "manual": true,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-field",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit-v2",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "random-ids",
+      "variant": "random-ids",
+      "expect": "manual_success",
+      "classified": "manual_success",
+      "manual": true,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "field-mlaqyt",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "submit-mlaqyt",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "decoy-button",
+      "variant": "decoy",
+      "expect": "manual_success",
+      "classified": "manual_success",
+      "manual": true,
+      "state": "SUCCEEDED",
+      "executed_actions": [
+        {
+          "action": "input",
+          "candidate_test_id": "keyword-input",
+          "candidate_name": "搜索"
+        },
+        {
+          "action": "click",
+          "candidate_test_id": "search-submit",
+          "candidate_name": "搜索"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "renamed-controls-refused",
+      "variant": "renamed",
+      "expect": "no_execution",
+      "classified": "no_execution",
+      "manual": false,
+      "state": "FAILED",
+      "executed_actions": [],
+      "error": "TARGET_NOT_FOUND"
+    },
+    {
+      "id": "golden-after-rename-refused",
+      "variant": "renamed",
+      "expect": "no_execution",
+      "classified": "no_execution",
+      "manual": false,
+      "state": "PAUSED_FOR_OUTCOME",
+      "executed_actions": [],
+      "error": "POSTCONDITION_FAILED"
+    }
+  ],
+  "metrics": {
+    "total_cases": 9,
+    "recoverable_cases": 7,
+    "recovered_cases": 7,
+    "manual_confirmations": 3,
+    "success_rate": 1,
+    "mis_executions": 0
+  }
+}

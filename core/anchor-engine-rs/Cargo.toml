@@ -1,0 +1,15 @@
+[package]
+name = "ib-anchor"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "IntentBridge anchor scoring: semantic/structure/native/visual evidence fusion"
+license = "Apache-2.0"
+
+[lib]
+name = "ib_anchor"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"

@@ -1,0 +1,660 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://intentbridge.dev/schema/flow-1.0.0.json",
+  "title": "IntentBridge Flow",
+  "description": "Canonical, platform-neutral Action IR (v1.0.0). Readable, validatable, migratable, replayable and auditable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "flow_id",
+    "name",
+    "platform",
+    "app_scope",
+    "variables",
+    "permissions",
+    "steps",
+    "created_by",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "flow_id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "platform": { "enum": ["web", "windows", "android"] },
+    "app_scope": { "$ref": "#/$defs/appScope" },
+    "variables": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/variable" }
+    },
+    "permissions": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/permission" }
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "created_by": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "labels": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": { "type": "string", "maxLength": 200 }
+    },
+    "notes": { "type": "string", "maxLength": 4000 },
+    "defaults": { "$ref": "#/$defs/defaults" }
+  },
+  "$defs": {
+    "appScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "enum": ["web-origin", "windows-app", "android-package"] },
+        "value": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "window_title": { "type": "string", "maxLength": 500 },
+        "process_name": { "type": "string", "maxLength": 260 },
+        "activity_hint": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+        "type": { "enum": ["string", "number", "boolean", "date"] },
+        "required": { "type": "boolean", "default": false },
+        "sensitive": { "type": "boolean", "default": false },
+        "description": { "type": "string", "maxLength": 500 },
+        "default": { "type": ["string", "number", "boolean"] },
+        "pattern": { "type": "string", "maxLength": 500 },
+        "min_length": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "max_length": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "permission": {
+      "enum": [
+        "read-ui",
+        "read-screen",
+        "click",
+        "type",
+        "select",
+        "scroll",
+        "launch",
+        "navigate",
+        "upload",
+        "download",
+        "clipboard-read"
+      ]
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 120000 },
+        "retry": { "$ref": "#/$defs/retry" },
+        "evidence_policy": { "$ref": "#/$defs/evidencePolicy" }
+      }
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 3, "default": 1 },
+        "backoff_ms": { "type": "integer", "minimum": 0, "maximum": 30000, "default": 250 },
+        "max_backoff_ms": { "type": "integer", "minimum": 0, "maximum": 120000, "default": 4000 },
+        "jitter_ratio": { "type": "number", "minimum": 0, "maximum": 0.5, "default": 0.2 },
+        "idempotency_key": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._:-]{0,127}$" }
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capture": { "enum": ["none", "target", "viewport"], "default": "target" },
+        "save_on": { "enum": ["failure", "always", "never"], "default": "failure" },
+        "retention_days": { "type": "integer", "minimum": 0, "maximum": 365, "default": 7 },
+        "mask_selectors": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "mask_text": { "type": "boolean", "default": true }
+      }
+    },
+    "risk": { "enum": ["normal", "sensitive", "irreversible"] },
+    "onFailure": {
+      "oneOf": [
+        { "type": "string", "enum": ["stop", "ask-user"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["stop", "ask-user", "goto-step"] },
+            "goto_step_id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" }
+          }
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" },
+        "action": {
+          "enum": [
+            "launch",
+            "activate",
+            "wait",
+            "click",
+            "input",
+            "select",
+            "scroll",
+            "read-text",
+            "assert",
+            "set-variable",
+            "branch",
+            "compensate",
+            "end"
+          ]
+        },
+        "name": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "target": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/target" }]
+        },
+        "preconditions": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/condition" }
+        },
+        "postconditions": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/condition" }
+        },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 120000 },
+        "retry": { "$ref": "#/$defs/retry" },
+        "on_failure": { "$ref": "#/$defs/onFailure" },
+        "risk": { "$ref": "#/$defs/risk" },
+        "evidence_policy": { "$ref": "#/$defs/evidencePolicy" },
+        "compensation_step_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$"
+        },
+        "params": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "const": "launch" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/launchParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "activate" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/activateParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "wait" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/waitParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "click" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/clickParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "input" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/inputParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "select" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/selectParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "scroll" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/scrollParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "read-text" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/readTextParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "assert" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/assertParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "set-variable" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/setVariableParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "branch" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/branchParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "compensate" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/compensateParams" }
+        },
+        {
+          "if": { "properties": { "action": { "const": "end" } }, "required": ["action"] },
+          "then": { "$ref": "#/$defs/endParams" }
+        }
+      ]
+    },
+    "paramsBase": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "launchParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app_id"],
+          "properties": {
+            "app_id": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "url": { "type": "string", "maxLength": 2000 },
+            "arguments": {
+              "type": "array",
+              "maxItems": 32,
+              "items": { "type": "string", "maxLength": 1000 }
+            },
+            "wait_ready": { "type": "boolean", "default": true }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "activateParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url_pattern": { "type": "string", "maxLength": 2000 },
+            "window_title": { "type": "string", "maxLength": 500 },
+            "process_name": { "type": "string", "maxLength": 260 }
+          }
+        }
+      }
+    },
+    "waitParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["condition"],
+          "properties": {
+            "condition": { "$ref": "#/$defs/condition" },
+            "poll_interval_ms": { "type": "integer", "minimum": 10, "maximum": 30000 }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "clickParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "button": { "enum": ["left", "right", "middle"], "default": "left" },
+            "click_count": { "type": "integer", "minimum": 1, "maximum": 2, "default": 1 },
+            "modifiers": {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": { "enum": ["ctrl", "alt", "shift", "meta"] }
+            },
+            "verify_enabled": { "type": "boolean", "default": true }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "inputParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": { "type": "string", "maxLength": 100000 },
+            "clear_first": { "type": "boolean", "default": true },
+            "submit": { "type": "boolean", "default": false },
+            "typing_delay_ms": { "type": "integer", "minimum": 0, "maximum": 500 }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "selectParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": { "type": "string", "maxLength": 2000 },
+            "by": { "enum": ["value", "label", "index"], "default": "value" }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "scrollParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direction"],
+          "properties": {
+            "direction": { "enum": ["up", "down", "left", "right"] },
+            "amount": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 600 },
+            "max_attempts": { "type": "integer", "minimum": 1, "maximum": 20, "default": 5 },
+            "boundary_condition": { "$ref": "#/$defs/condition" }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "readTextParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["output_variable"],
+          "properties": {
+            "output_variable": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+            "max_chars": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 10000 },
+            "sensitive": { "type": "boolean", "default": false }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "assertParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["condition"],
+          "properties": {
+            "condition": { "$ref": "#/$defs/condition" },
+            "message": { "type": "string", "maxLength": 1000 }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "setVariableParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "value"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+            "value": { "type": ["string", "number", "boolean"] },
+            "sensitive": { "type": "boolean", "default": false }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "branchParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["condition", "goto_step_id"],
+          "properties": {
+            "condition": { "$ref": "#/$defs/condition" },
+            "goto_step_id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" },
+            "else_step_id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$" }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "compensateParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["compensation_step_id"],
+          "properties": {
+            "compensation_step_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$"
+            },
+            "reason": { "type": "string", "maxLength": 1000 }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "endParams": {
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["success", "failed"] },
+            "message": { "type": "string", "maxLength": 1000 }
+          }
+        }
+      },
+      "required": ["params"]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchors"],
+      "properties": {
+        "anchors": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "semantic": { "$ref": "#/$defs/semanticAnchor" },
+            "structure": { "$ref": "#/$defs/structureAnchor" },
+            "native_identity": { "$ref": "#/$defs/nativeIdentity" },
+            "visual": { "$ref": "#/$defs/visualAnchor" }
+          }
+        },
+        "fallback_bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "w": { "type": "number", "minimum": 0 },
+            "h": { "type": "number", "minimum": 0 }
+          }
+        },
+        "confidence": { "$ref": "#/$defs/confidencePolicy" }
+      }
+    },
+    "semanticAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 500 },
+        "label": { "type": "string", "maxLength": 500 },
+        "placeholder": { "type": "string", "maxLength": 500 },
+        "test_id": { "type": "string", "maxLength": 500 },
+        "control_type": { "type": "string", "maxLength": 100 },
+        "text": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "structureAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "parent": { "type": "string", "maxLength": 200 },
+        "container": { "type": "string", "maxLength": 200 },
+        "sibling_index": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "sibling_count": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "nativeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "web-dom-id",
+            "web-test-id",
+            "uia-automation-id",
+            "android-resource-id",
+            "android-content-desc"
+          ]
+        },
+        "value": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "visualAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dhash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "template_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "norm_rect": { "$ref": "#/$defs/normRect" },
+        "viewport": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "w": { "type": "number", "minimum": 1 },
+            "h": { "type": "number", "minimum": 1 }
+          }
+        },
+        "device_scale": { "type": "number", "minimum": 0.5, "maximum": 8 },
+        "style_signature": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "normRect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "w": { "type": "number", "minimum": 0, "maximum": 1 },
+        "h": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "confidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["strict", "balanced"], "default": "balanced" },
+        "min_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ambiguity_margin": { "type": "number", "minimum": 0, "maximum": 1 },
+        "visual_only_requires_confirmation": { "type": "boolean", "default": true }
+      }
+    },
+    "matcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "enum": ["equals", "contains", "regex", "glob"] },
+        "value": { "type": "string", "maxLength": 4000 },
+        "case_sensitive": { "type": "boolean", "default": false }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target"],
+          "properties": {
+            "kind": { "const": "element-present" },
+            "target": { "$ref": "#/$defs/target" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target"],
+          "properties": {
+            "kind": { "const": "element-absent" },
+            "target": { "$ref": "#/$defs/target" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target", "matcher"],
+          "properties": {
+            "kind": { "const": "text-matches" },
+            "target": { "$ref": "#/$defs/target" },
+            "matcher": { "$ref": "#/$defs/matcher" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "window-stable" },
+            "min_stable_ms": { "type": "integer", "minimum": 0, "maximum": 60000 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "variable", "operator", "value"],
+          "properties": {
+            "kind": { "const": "variable-compare" },
+            "variable": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+            "operator": {
+              "enum": ["equals", "not-equals", "contains", "gt", "gte", "lt", "lte", "matches"]
+            },
+            "value": { "type": ["string", "number", "boolean", "null"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "pattern"],
+          "properties": {
+            "kind": { "const": "url-matches" },
+            "pattern": { "type": "string", "maxLength": 4000 },
+            "match_type": { "enum": ["equals", "contains", "regex"], "default": "contains" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "app-in-foreground" },
+            "value": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        }
+      ]
+    }
+  }
+}

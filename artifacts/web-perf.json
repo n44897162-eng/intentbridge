@@ -1,0 +1,7 @@
+{
+  "generated_at": "2026-11-21T20:17:04.830Z",
+  "planner_p95_ms": 1.4234100000030594,
+  "planner_samples": 40,
+  "total_elapsed_ms": 655.1979979999996,
+  "actions": 4
+}

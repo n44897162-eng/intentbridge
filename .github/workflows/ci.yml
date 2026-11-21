@@ -1,0 +1,61 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-linux:
+    name: Linux verify (real Chrome + WASM)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.21.0 --activate
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.89.0'
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Install Xvfb and Chromium dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+      - name: Install Playwright Chromium (extension tests need an unbranded build)
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Quality gate
+        run: xvfb-run -a node scripts/gate.mjs
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports
+          path: |
+            artifacts/
+            sbom/
+          if-no-files-found: ignore
+
+  windows-not-run:
+    name: Windows build (NOT_RUN in this repository state)
+    runs-on: windows-latest
+    if: false # Enable only when the Windows slice has been validated (BUG-001).
+    steps:
+      - run: echo "Windows verification is intentionally disabled until BUG-001 is resolved."
+
+  android-not-run:
+    name: Android build (NOT_RUN in this repository state)
+    runs-on: ubuntu-24.04
+    if: false # Enable only with an Android SDK/emulator runner (BUG-002).
+    steps:
+      - run: echo "Android verification is intentionally disabled until BUG-002 is resolved."

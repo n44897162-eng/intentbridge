@@ -1,0 +1,25 @@
+[package]
+name = "ib-runtime"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "IntentBridge deterministic execution state machine (native + WASM)"
+license = "Apache-2.0"
+
+[lib]
+name = "ib_runtime"
+crate-type = ["rlib", "cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ib-runtime"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+[dependencies]
+ib-anchor = { path = "../anchor-engine-rs" }
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+regex = "1.11.1"

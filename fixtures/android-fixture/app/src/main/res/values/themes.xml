@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.IntentBridgeFixture" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

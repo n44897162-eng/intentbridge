@@ -1,0 +1,26 @@
+{
+  "name": "@intentbridge/web-shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-ui.mjs",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@intentbridge/action-ir": "workspace:*",
+    "@intentbridge/engine-wasm": "workspace:*",
+    "@intentbridge/protocol": "workspace:*",
+    "@intentbridge/web-core": "workspace:*",
+    "@intentbridge/web-runner": "workspace:*",
+    "playwright": "^1.49.1"
+  },
+  "devDependencies": {
+    "@intentbridge/editor-ui": "workspace:*",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2"
+  }
+}

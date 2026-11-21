@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">IntentBridge</string>
+    <string name="accessibility_description">仅在你手动开始录制或执行流程时读取当前应用的界面结构；密码字段内容不会被记录。可随时在系统设置中关闭。</string>
+</resources>

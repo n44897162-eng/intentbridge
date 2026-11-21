@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-11-21T20:17:37.211Z",
+  "runs": 30,
+  "succeeded": 30,
+  "memory_before": {
+    "rss": 342.5,
+    "heap_total": 201.9,
+    "heap_used": 62.9,
+    "external": 4.7,
+    "array_buffers": 0.5
+  },
+  "memory_after": {
+    "rss": 346.7,
+    "heap_total": 200.8,
+    "heap_used": 61.7,
+    "external": 6.8,
+    "array_buffers": 0.4
+  },
+  "node_rss_growth_mb": 4.2,
+  "p95_total_ms": 653.9,
+  "submits": 30
+}

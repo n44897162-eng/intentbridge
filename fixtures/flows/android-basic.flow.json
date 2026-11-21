@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "66666666-6666-4666-8666-666666666666",
+  "name": "Android 夹具检索",
+  "description": "Android 受控夹具流程：resource-id + 语义锚点。",
+  "platform": "android",
+  "app_scope": {
+    "kind": "android-package",
+    "value": "com.intentbridge.fixture",
+    "activity_hint": ".MainActivity"
+  },
+  "variables": [{ "name": "keyword", "type": "string", "required": true }],
+  "permissions": ["read-ui", "read-screen", "click", "type", "launch"],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "启动夹具",
+      "risk": "normal",
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": { "role": "textbox", "control_type": "android.widget.EditText" },
+              "native_identity": {
+                "kind": "android-resource-id",
+                "value": "com.intentbridge.fixture:id/keyword"
+              }
+            }
+          }
+        }
+      ],
+      "params": { "app_id": "com.intentbridge.fixture", "wait_ready": true }
+    },
+    {
+      "id": "type-keyword",
+      "action": "input",
+      "name": "输入关键词",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": { "role": "textbox", "control_type": "android.widget.EditText" },
+          "native_identity": {
+            "kind": "android-resource-id",
+            "value": "com.intentbridge.fixture:id/keyword"
+          }
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "text-matches",
+          "target": {
+            "anchors": {
+              "semantic": { "role": "textbox" },
+              "native_identity": {
+                "kind": "android-resource-id",
+                "value": "com.intentbridge.fixture:id/keyword"
+              }
+            }
+          },
+          "matcher": { "type": "contains", "value": "${keyword}" }
+        }
+      ],
+      "params": { "value": "${keyword}", "clear_first": true }
+    },
+    {
+      "id": "search",
+      "action": "click",
+      "name": "搜索",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": { "role": "button", "name": "搜索" },
+          "native_identity": {
+            "kind": "android-resource-id",
+            "value": "com.intentbridge.fixture:id/search"
+          }
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": { "role": "listitem", "control_type": "android.widget.TextView" },
+              "native_identity": {
+                "kind": "android-resource-id",
+                "value": "com.intentbridge.fixture:id/result"
+              }
+            }
+          }
+        }
+      ],
+      "params": { "button": "left", "click_count": 1 }
+    },
+    { "id": "done", "action": "end", "name": "完成", "params": { "status": "success" } }
+  ],
+  "created_by": "fixture-android",
+  "revision": 1
+}

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:id="@+id/page"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="IntentBridge Android Fixture"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/variant"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="variant: baseline" />
+
+        <LinearLayout
+            android:id="@+id/form"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:orientation="vertical">
+
+            <EditText
+                android:id="@+id/keyword"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="输入关键词"
+                android:contentDescription="搜索"
+                android:importantForAutofill="no"
+                android:inputType="text" />
+
+            <Button
+                android:id="@+id/search"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginTop="8dp"
+                android:text="搜索"
+                android:contentDescription="搜索" />
+
+            <Button
+                android:id="@+id/ghost"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginTop="8dp"
+                android:text="搜索"
+                android:contentDescription="搜索"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="输入关键词开始检索" />
+
+        <ListView
+            android:id="@+id/results"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/open_detail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="打开详情"
+            android:contentDescription="打开详情" />
+
+        <Button
+            android:id="@+id/recreate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="重建 Activity"
+            android:contentDescription="重建 Activity" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,458 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:c32ef63c-e50d-4373-87d5-dde714da035d",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-21T20:17:40.733Z",
+    "tools": [
+      {
+        "vendor": "IntentBridge",
+        "name": "scripts/sbom.mjs",
+        "version": "0.1.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "intentbridge",
+      "version": "0.1.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "aho-corasick",
+      "version": "1.1.5",
+      "purl": "pkg:cargo/aho-corasick@1.1.5",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "bytes",
+      "version": "1.12.2",
+      "purl": "pkg:cargo/bytes@1.12.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "cesu8",
+      "version": "1.1.0",
+      "purl": "pkg:cargo/cesu8@1.1.0",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "cfg-if",
+      "version": "1.0.5",
+      "purl": "pkg:cargo/cfg-if@1.0.5",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "combine",
+      "version": "4.6.9",
+      "purl": "pkg:cargo/combine@4.6.9",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "ib-anchor",
+      "version": "0.1.0",
+      "purl": "pkg:cargo/ib-anchor@0.1.0",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "ib-runtime",
+      "version": "0.1.0",
+      "purl": "pkg:cargo/ib-runtime@0.1.0",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "itoa",
+      "version": "1.0.19",
+      "purl": "pkg:cargo/itoa@1.0.19",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "jni-sys-macros",
+      "version": "0.4.1",
+      "purl": "pkg:cargo/jni-sys-macros@0.4.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "jni-sys",
+      "version": "0.3.1",
+      "purl": "pkg:cargo/jni-sys@0.3.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "jni-sys",
+      "version": "0.4.1",
+      "purl": "pkg:cargo/jni-sys@0.4.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "jni",
+      "version": "0.21.1",
+      "purl": "pkg:cargo/jni@0.21.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "log",
+      "version": "0.4.35",
+      "purl": "pkg:cargo/log@0.4.35",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "memchr",
+      "version": "2.8.3",
+      "purl": "pkg:cargo/memchr@2.8.3",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "purl": "pkg:cargo/proc-macro2@1.0.107",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "quote",
+      "version": "1.0.47",
+      "purl": "pkg:cargo/quote@1.0.47",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "regex-automata",
+      "version": "0.4.19",
+      "purl": "pkg:cargo/regex-automata@0.4.19",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "regex-syntax",
+      "version": "0.8.12",
+      "purl": "pkg:cargo/regex-syntax@0.8.12",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "regex",
+      "version": "1.13.2",
+      "purl": "pkg:cargo/regex@1.13.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "same-file",
+      "version": "1.0.6",
+      "purl": "pkg:cargo/same-file@1.0.6",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "serde_core",
+      "version": "1.0.229",
+      "purl": "pkg:cargo/serde_core@1.0.229",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "serde_derive",
+      "version": "1.0.229",
+      "purl": "pkg:cargo/serde_derive@1.0.229",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "serde_json",
+      "version": "1.0.154",
+      "purl": "pkg:cargo/serde_json@1.0.154",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "serde",
+      "version": "1.0.229",
+      "purl": "pkg:cargo/serde@1.0.229",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "syn",
+      "version": "2.0.119",
+      "purl": "pkg:cargo/syn@2.0.119",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "syn",
+      "version": "3.0.10",
+      "purl": "pkg:cargo/syn@3.0.10",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "thiserror-impl",
+      "version": "1.0.69",
+      "purl": "pkg:cargo/thiserror-impl@1.0.69",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "thiserror",
+      "version": "1.0.69",
+      "purl": "pkg:cargo/thiserror@1.0.69",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "unicode-ident",
+      "version": "1.0.27",
+      "purl": "pkg:cargo/unicode-ident@1.0.27",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "walkdir",
+      "version": "2.5.1",
+      "purl": "pkg:cargo/walkdir@2.5.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "winapi-util",
+      "version": "0.1.11",
+      "purl": "pkg:cargo/winapi-util@0.1.11",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_aarch64_gnullvm",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_aarch64_gnullvm@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_aarch64_msvc",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_aarch64_msvc@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_i686_gnu",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_i686_gnu@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_i686_msvc",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_i686_msvc@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_x86_64_gnu",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_x86_64_gnu@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_x86_64_gnullvm",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_x86_64_gnullvm@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows_x86_64_msvc",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows_x86_64_msvc@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows-link",
+      "version": "0.2.1",
+      "purl": "pkg:cargo/windows-link@0.2.1",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows-sys",
+      "version": "0.45.0",
+      "purl": "pkg:cargo/windows-sys@0.45.0",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows-sys",
+      "version": "0.61.2",
+      "purl": "pkg:cargo/windows-sys@0.61.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "windows-targets",
+      "version": "0.42.2",
+      "purl": "pkg:cargo/windows-targets@0.42.2",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "zmij",
+      "version": "1.0.23",
+      "purl": "pkg:cargo/zmij@1.0.23",
+      "scope": "runtime"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/action-ir",
+      "version": "link:../../core/action-ir",
+      "purl": "pkg:npm/@intentbridge/action-ir@link:../../core/action-ir",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/engine-wasm",
+      "version": "link:../../packages/engine-wasm",
+      "purl": "pkg:npm/@intentbridge/engine-wasm@link:../../packages/engine-wasm",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/engine-wasm",
+      "version": "link:../engine-wasm",
+      "purl": "pkg:npm/@intentbridge/engine-wasm@link:../engine-wasm",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/protocol",
+      "version": "link:../../packages/protocol",
+      "purl": "pkg:npm/@intentbridge/protocol@link:../../packages/protocol",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/protocol",
+      "version": "link:../protocol",
+      "purl": "pkg:npm/@intentbridge/protocol@link:../protocol",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/web-core",
+      "version": "link:../../packages/web-core",
+      "purl": "pkg:npm/@intentbridge/web-core@link:../../packages/web-core",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "@intentbridge/web-runner",
+      "version": "link:../web-runner",
+      "purl": "pkg:npm/@intentbridge/web-runner@link:../web-runner",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "purl": "pkg:npm/ajv-formats@3.0.1",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "ajv",
+      "version": "8.20.0",
+      "purl": "pkg:npm/ajv@8.20.0",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "playwright",
+      "version": "1.65.1",
+      "purl": "pkg:npm/playwright@1.65.1",
+      "scope": "runtime-or-dev"
+    },
+    {
+      "type": "library",
+      "name": "pngjs",
+      "version": "7.0.0",
+      "purl": "pkg:npm/pngjs@7.0.0",
+      "scope": "runtime-or-dev"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "file",
+      "name": "target/wasm32-unknown-unknown/release/ib_runtime.wasm",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "398dd3159da3a660eb2ec2f9b0c2d58a50bbc7697d1287f8461d1dcc3dce3aa9"
+        }
+      ],
+      "size": 2327267
+    },
+    {
+      "type": "file",
+      "name": "apps/web-extension/dist/ib_runtime.wasm",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "398dd3159da3a660eb2ec2f9b0c2d58a50bbc7697d1287f8461d1dcc3dce3aa9"
+        }
+      ],
+      "size": 2327267
+    },
+    {
+      "type": "file",
+      "name": "apps/web-extension/dist/background.js",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b341f91c79580739fbe7e6e776123051660f9ad2156572745402b71334e41b16"
+        }
+      ],
+      "size": 41950
+    },
+    {
+      "type": "file",
+      "name": "apps/web-extension/dist/content.js",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "47df8d98190f7d3e953f082fd3dbd3f69d7215fd46533285dac9156901e371d6"
+        }
+      ],
+      "size": 23115
+    },
+    {
+      "type": "file",
+      "name": "apps/web-shell/dist/ui.js",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "47f5681096ee91b5468277ecc31385fe54bf0e2f8a7dd49072ad651f135fc2b1"
+        }
+      ],
+      "size": 60069
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "55555555-5555-4555-8555-555555555555",
+  "name": "Windows 记事本输入并保存",
+  "description": "Windows 受控夹具流程：UIA 自动化标识 + 语义锚点。",
+  "platform": "windows",
+  "app_scope": {
+    "kind": "windows-app",
+    "value": "notepad.exe",
+    "process_name": "notepad.exe",
+    "window_title": "IntentBridge Notepad Fixture"
+  },
+  "variables": [{ "name": "keyword", "type": "string", "required": true }],
+  "permissions": ["read-ui", "read-screen", "click", "type", "launch"],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "启动夹具",
+      "risk": "normal",
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": { "control_type": "Edit", "name": "文本编辑器" },
+              "native_identity": { "kind": "uia-automation-id", "value": "15" }
+            }
+          }
+        }
+      ],
+      "params": { "app_id": "notepad.exe", "wait_ready": true }
+    },
+    {
+      "id": "type-keyword",
+      "action": "input",
+      "name": "输入并保存",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": { "control_type": "Edit", "name": "文本编辑器" },
+          "native_identity": { "kind": "uia-automation-id", "value": "15" }
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "text-matches",
+          "target": {
+            "anchors": {
+              "semantic": { "control_type": "Edit" },
+              "native_identity": { "kind": "uia-automation-id", "value": "15" }
+            }
+          },
+          "matcher": { "type": "contains", "value": "${keyword}" }
+        }
+      ],
+      "params": { "value": "${keyword}", "clear_first": true }
+    },
+    {
+      "id": "save",
+      "action": "click",
+      "name": "保存",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": { "role": "button", "name": "保存" },
+          "native_identity": { "kind": "uia-automation-id", "value": "save-button" }
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": { "control_type": "Window", "name": "另存为" },
+              "native_identity": { "kind": "uia-automation-id", "value": "save-dialog" }
+            }
+          }
+        }
+      ],
+      "params": { "button": "left", "click_count": 1 }
+    },
+    { "id": "done", "action": "end", "name": "完成", "params": { "status": "success" } }
+  ],
+  "created_by": "fixture-windows",
+  "revision": 1
+}

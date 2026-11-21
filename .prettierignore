@@ -1,0 +1,14 @@
+node_modules
+dist
+target
+.data
+artifacts
+sbom
+pnpm-lock.yaml
+Cargo.lock
+fixtures/web-fixture/public
+apps/android-app
+fixtures/android-fixture
+apps/windows-executor
+fixtures/windows-fixture
+docs/任务书A-跨端意图执行层.md

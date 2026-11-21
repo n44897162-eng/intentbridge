@@ -1,0 +1,22 @@
+{
+  "name": "@intentbridge/web-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@intentbridge/action-ir": "workspace:*",
+    "@intentbridge/engine-wasm": "workspace:*",
+    "@intentbridge/protocol": "workspace:*",
+    "@intentbridge/web-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2"
+  }
+}
