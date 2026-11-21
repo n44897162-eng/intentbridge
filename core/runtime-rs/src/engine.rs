@@ -1863,6 +1863,12 @@ impl Engine {
     fn branch_decision(&mut self, matched: bool) -> Result<StepOutput, BridgeError> {
         let step = self.step()?;
         let params = step.params.clone().unwrap_or_else(|| json!({}));
+        self.emit(
+            "StepSucceeded",
+            Some(step.id.clone()),
+            Some(self.attempt_id.clone()).filter(|id| !id.is_empty()),
+            json!({ "action": "branch", "matched": matched }),
+        );
         let next_id = if matched {
             params.get("goto_step_id").and_then(Value::as_str)
         } else {

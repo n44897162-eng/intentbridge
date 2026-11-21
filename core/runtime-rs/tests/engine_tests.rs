@@ -895,6 +895,136 @@ fn duplicate_action_result_is_rejected() {
 }
 
 #[test]
+fn branch_and_goto_control_flow_are_deterministic() {
+    let mut flow = golden();
+    flow["variables"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "name": "route", "type": "string" }));
+    flow["steps"] = json!([
+        flow["steps"][0].clone(),
+        {
+            "id": "set-route",
+            "action": "set-variable",
+            "params": { "name": "route", "value": "click" }
+        },
+        {
+            "id": "branch",
+            "action": "branch",
+            "params": {
+                "condition": { "kind": "variable-compare", "variable": "route", "operator": "equals", "value": "click" },
+                "goto_step_id": "click-now",
+                "else_step_id": "skip"
+            }
+        },
+        {
+            "id": "skip",
+            "action": "set-variable",
+            "params": { "name": "skipped", "value": "yes" }
+        },
+        {
+            "id": "click-now",
+            "action": "click",
+            "target": {
+                "anchors": {
+                    "semantic": { "role": "textbox", "test_id": "keyword-input" },
+                    "native_identity": { "kind": "web-test-id", "value": "keyword-input" }
+                }
+            },
+            "postconditions": [{ "kind": "window-stable", "min_stable_ms": 100 }],
+            "params": { "button": "left" }
+        },
+        { "id": "done", "action": "end", "params": { "status": "success" } }
+    ]);
+    let result = drive(configured_engine(flow), Host::new());
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    assert_eq!(
+        result.host.performed,
+        vec!["open:launch", "click-now:click"]
+    );
+    let planned: Vec<String> = result
+        .engine
+        .events()
+        .iter()
+        .filter(|event| event.event_type == "StepPlanned")
+        .filter_map(|event| event.step_id.clone())
+        .collect();
+    assert!(!planned.contains(&"skip".to_string()));
+    assert_eq!(
+        result
+            .engine
+            .events()
+            .iter()
+            .filter(|event| event.event_type == "StepSucceeded")
+            .count(),
+        5
+    );
+}
+
+#[test]
+fn on_failure_goto_step_survives_a_known_failure() {
+    let mut flow = golden();
+    flow["steps"][2]["on_failure"] = json!({ "mode": "goto-step", "goto_step_id": "recovered" });
+    flow["steps"].as_array_mut().unwrap().insert(
+        3,
+        json!({
+            "id": "recovered",
+            "action": "set-variable",
+            "params": { "name": "recovered", "value": "yes" }
+        }),
+    );
+    let mut host = Host::new();
+    host.failures.insert("submit".into(), 1);
+    let result = drive(configured_engine(flow), host);
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    assert!(result
+        .engine
+        .events()
+        .iter()
+        .any(|event| event.event_type == "StepFailed"));
+    assert!(result
+        .engine
+        .events()
+        .iter()
+        .any(|event| event.event_type == "StepPlanned"
+            && event.step_id.as_deref() == Some("recovered")));
+}
+
+#[test]
+fn compensation_is_best_effort_and_ends_the_run_failed() {
+    let mut flow = golden();
+    flow["steps"][2]["on_failure"] = json!("ask-user");
+    flow["steps"][2]["compensation_step_id"] = json!("cleanup");
+    flow["steps"].as_array_mut().unwrap().insert(
+        3,
+        json!({
+            "id": "cleanup",
+            "action": "set-variable",
+            "params": { "name": "compensated", "value": "yes" }
+        }),
+    );
+    let mut host = Host::new();
+    host.failures.insert("submit".into(), 1);
+    host.recovery = "compensate";
+    let result = drive(configured_engine(flow), host);
+    assert_eq!(result.engine.state().as_str(), "FAILED");
+    assert!(result
+        .engine
+        .events()
+        .iter()
+        .any(|event| event.event_type == "CompensationRecorded"));
+    assert_eq!(
+        result
+            .host
+            .performed
+            .iter()
+            .filter(|action| action.starts_with("submit:"))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn stale_candidates_are_re_resolved_without_execution() {
     let mut host = Host::new();
     host.stale_first = true;

@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:c32ef63c-e50d-4373-87d5-dde714da035d",
+  "serialNumber": "urn:uuid:38b5d52f-0ca8-4957-b480-8751a2f28d2d",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-11-21T20:17:40.733Z",
+    "timestamp": "2026-11-21T20:24:20.635Z",
     "tools": [
       {
         "vendor": "IntentBridge",
@@ -405,10 +405,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "398dd3159da3a660eb2ec2f9b0c2d58a50bbc7697d1287f8461d1dcc3dce3aa9"
+          "content": "f43b2904c0cb69d7ed1f4f210ac510878032cf90e12e21f6171210262550ebae"
         }
       ],
-      "size": 2327267
+      "size": 2328093
     },
     {
       "type": "file",
@@ -416,10 +416,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "398dd3159da3a660eb2ec2f9b0c2d58a50bbc7697d1287f8461d1dcc3dce3aa9"
+          "content": "f43b2904c0cb69d7ed1f4f210ac510878032cf90e12e21f6171210262550ebae"
         }
       ],
-      "size": 2327267
+      "size": 2328093
     },
     {
       "type": "file",

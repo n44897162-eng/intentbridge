@@ -1,22 +1,22 @@
 {
-  "generated_at": "2026-11-21T20:17:37.211Z",
+  "generated_at": "2026-11-21T20:24:17.278Z",
   "runs": 30,
   "succeeded": 30,
   "memory_before": {
-    "rss": 342.5,
-    "heap_total": 201.9,
-    "heap_used": 62.9,
+    "rss": 367,
+    "heap_total": 200.7,
+    "heap_used": 63.2,
     "external": 4.7,
     "array_buffers": 0.5
   },
   "memory_after": {
-    "rss": 346.7,
-    "heap_total": 200.8,
-    "heap_used": 61.7,
+    "rss": 375.9,
+    "heap_total": 200.3,
+    "heap_used": 62,
     "external": 6.8,
     "array_buffers": 0.4
   },
-  "node_rss_growth_mb": 4.2,
-  "p95_total_ms": 653.9,
+  "node_rss_growth_mb": 8.9,
+  "p95_total_ms": 657.5,
   "submits": 30
 }
