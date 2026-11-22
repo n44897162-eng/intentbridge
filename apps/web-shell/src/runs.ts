@@ -263,8 +263,8 @@ export class RunManager {
       active.driver = driver;
       engine = await WasmEngine.fromModule(await this.compiledModule());
       const hooks: RunHooks = {
-        beforeApproval: async () => {
-          const stepId = active.lastStepId;
+        beforeApproval: async (_summary, context) => {
+          const stepId = context.step_id;
           const step = stepId ? this.stepOf(active.flow, stepId) : undefined;
           const risk = step?.risk ?? 'normal';
           if (!step || (risk !== 'sensitive' && risk !== 'irreversible')) return;

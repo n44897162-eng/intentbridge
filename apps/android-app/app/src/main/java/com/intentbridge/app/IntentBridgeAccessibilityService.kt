@@ -62,12 +62,28 @@ class IntentBridgeAccessibilityService : AccessibilityService() {
         val metrics = resources.displayMetrics
         val snapshot = AccessibilitySnapshot.capture(root, metrics.widthPixels, metrics.heightPixels)
         val bounds = android.graphics.Rect().also { node.getBoundsInScreen(it) }
-        val candidate = (0 until snapshot.candidates.length())
+        val candidates = (0 until snapshot.candidates.length())
             .map { snapshot.candidates.getJSONObject(it) }
-            .firstOrNull { item ->
-                item.optJSONObject("native_identity")?.optString("value") == node.viewIdResourceName &&
-                    item.optJSONObject("rect")?.optInt("x") == bounds.left
-            } ?: return
+        val viewId = node.viewIdResourceName
+        val candidate = candidates.firstOrNull { item ->
+            viewId != null &&
+                item.optJSONObject("native_identity")?.optString("value") == viewId &&
+                item.optJSONObject("rect")?.optInt("x") == bounds.left
+        } ?: candidates.firstOrNull { item ->
+            // Controls without a native id are matched by stable geometry and
+            // accessible name/text; this is the common case in Compose/WebView.
+            val rect = item.optJSONObject("rect") ?: return@firstOrNull false
+            val close =
+                kotlin.math.abs(rect.optInt("x") - bounds.left) <= 4 &&
+                    kotlin.math.abs(rect.optInt("y") - bounds.top) <= 4 &&
+                    kotlin.math.abs(rect.optInt("w") - bounds.width()) <= 8 &&
+                    kotlin.math.abs(rect.optInt("h") - bounds.height()) <= 8
+            if (!close) return@firstOrNull false
+            val name = item.optJSONObject("semantic")?.optString("name").orEmpty()
+            val nodeName = node.contentDescription?.toString().orEmpty()
+            name.isEmpty() || nodeName.isEmpty() || name == nodeName ||
+                name == node.text?.toString().orEmpty()
+        } ?: return
         val event = JSONObject().apply {
             put("type", kind)
             put("candidate", candidate)

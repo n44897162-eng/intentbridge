@@ -18,7 +18,7 @@
 | Rust 确定性执行状态机（原生 + WASM）                                       | **可用**                      | 32 个引擎测试、500 次虚拟长跑、47 个 Rust 测试                                  |
 | Web 真实录制与确定性重放                                                   | **可用**                      | 真实 Chrome e2e：录制 → 校验 → 回放；10 次连续回放                              |
 | 漂移重锚（移动/改 id/随机 id/慢加载/诱饵/改名）                            | **可用**                      | 9 例语料：7/7 可恢复，误执行 0，报告见 `artifacts/drift-report.json`            |
-| 管理界面（流程/步骤/目标检查器/变量密钥/权限/试运行/时间轴/导入导出/设置） | **可用**                      | 真实浏览器 e2e：保存 r2、试运行成功、暂停决策、证据图片、1000 步 182ms 打开     |
+| 管理界面（流程/步骤/目标检查器/变量密钥/权限/试运行/时间轴/导入导出/设置） | **可用**                      | 真实浏览器 e2e：保存 r2、试运行成功、暂停决策、证据图片、1000 步 176ms 打开     |
 | MV3 浏览器扩展（真实 Chromium 加载）                                       | **可用（有限）**              | 真实 Chromium 下 service worker、WASM、popup、content script 快照与输入操作验证 |
 | 加密流程包 / 本地 SQLite / 密钥加密                                        | **可用**                      | API 集成测试（含错误口令、路径穿越、诊断脱敏）                                  |
 | Windows .NET 8 + UIA 执行器与夹具                                          | **构建通过；OS 运行 NOT_RUN** | Linux 交叉编译 0 warning；见 `docs/BUILD-REPORT.md`                             |
@@ -77,7 +77,7 @@ pnpm gate        # 锁文件、类型检查、rustfmt、clippy -D warnings、car
 
 ```bash
 pnpm typecheck
-pnpm test        # 68 个 TS 测试：单元、API、真实 Chrome、21 条黄金流程、漂移、扩展、长跑
+pnpm test        # 69 个 TS 测试：单元、API、真实 Chrome、21 条黄金流程、漂移、扩展、长跑
 cargo test --workspace   # 47 个 Rust 测试
 ```
 

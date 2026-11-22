@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:bc365855-ea7f-4eb8-a12b-c912bc2f5d21",
+  "serialNumber": "urn:uuid:c872a4c5-0c6e-41fa-886e-727443c60590",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-11-22T04:46:02.978Z",
+    "timestamp": "2026-11-22T05:27:56.151Z",
     "tools": [
       {
         "vendor": "IntentBridge",
@@ -427,10 +427,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "2a4cdad65fe763c094fd4afd30727b0c539a63b9be726bb1620c8c34b71927d6"
+          "content": "fc10007524e0666d448edf5f65b01ca3be61ae84f531c30b7ad767f771abbd4a"
         }
       ],
-      "size": 46424
+      "size": 51512
     },
     {
       "type": "file",

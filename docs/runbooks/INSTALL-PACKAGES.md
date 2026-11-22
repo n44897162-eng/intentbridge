@@ -38,6 +38,14 @@ cargo build -p ib-runtime --release --target x86_64-pc-windows-msvc
 
 - 升级/回滚：替换发布目录；运行数据默认在 `%LOCALAPPDATA%\IntentBridge`（实现于 Windows 壳层，当前未交付）。
 - 卸载：删除发布目录与上述数据目录。
+- 密钥：`secret://alias` 从 Windows 凭据管理器读取通用凭据 `IntentBridge:<alias>`，不落盘：
+
+```powershell
+cmdkey /generic:IntentBridge:bank-pin /user:intentbridge /pass:<口令>
+```
+
+可用 `cmdkey /delete:IntentBridge:bank-pin` 删除。需要 `advapi32` 的 `CredReadW`；未配置时动作返回 `SECRET_NOT_FOUND`，不会把别名敲进目标。
+
 - UIA 运行时验收未完成（BUG-001）。
 
 ## 源码包

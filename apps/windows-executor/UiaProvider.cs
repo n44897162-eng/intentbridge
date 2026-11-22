@@ -410,9 +410,13 @@ public sealed class UiaProvider : IDisposable
                         var raw = paramsNode["value"]?.GetValue<string>() ?? string.Empty;
                         if (raw.StartsWith("secret://", StringComparison.Ordinal))
                         {
-                            // Never type the alias into the target. A Windows
-                            // secret backend is not shipped yet, so fail closed.
-                            return Error("SECRET_NOT_FOUND", "Windows secret store is not configured");
+                            var alias = raw["secret://".Length..];
+                            var resolved = WindowsSecretStore.Resolve(alias);
+                            if (resolved is null)
+                            {
+                                return Error("SECRET_NOT_FOUND", $"credential {alias} is not configured");
+                            }
+                            raw = resolved;
                         }
                         element.SetFocus();
                         value.SetValue(raw);

@@ -5,6 +5,7 @@
  */
 import type { Flow, Target } from '@intentbridge/action-ir';
 import { WasmEngine } from '@intentbridge/engine-wasm';
+import { isOrphanedSession, reconciledStatus } from './lifecycle.js';
 import {
   buildFlowFromRecording,
   dhashFromRgba,
@@ -31,6 +32,10 @@ interface RuntimeState {
   pending?: { kind: string; payload: unknown } | null;
   events?: number;
   action_log?: unknown[];
+  visuals_enriched?: number;
+  visuals_attempts?: number;
+  visuals_error?: string;
+  evidence_count?: number;
   summary?: { status: string; state: string };
   updated_at: string;
 }
@@ -166,6 +171,46 @@ class ExtensionDriver implements BrowserDriver {
     return snapshot;
   }
 
+  async enrichVisuals(snapshot: SnapshotResult, target: Target | null): Promise<void> {
+    if (!target?.anchors.visual?.dhash) return;
+    runtime.visuals_attempts = (runtime.visuals_attempts ?? 0) + 1;
+    await saveRuntime({ visuals_attempts: runtime.visuals_attempts });
+    try {
+      const tab = await chrome.tabs.get(this.tabId);
+      await chrome.tabs.update(this.tabId, { active: true });
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.drawImage(bitmap, 0, 0);
+      const scaleX = bitmap.width / Math.max(1, snapshot.viewport.w);
+      const scaleY = bitmap.height / Math.max(1, snapshot.viewport.h);
+      for (const candidate of snapshot.candidates) {
+        const rect = candidate.rect;
+        if (!rect || rect.w < 2 || rect.h < 2) continue;
+        const x = Math.max(0, Math.min(bitmap.width - 1, Math.round(rect.x * scaleX)));
+        const y = Math.max(0, Math.min(bitmap.height - 1, Math.round(rect.y * scaleY)));
+        const w = Math.max(1, Math.min(bitmap.width - x, Math.round(rect.w * scaleX)));
+        const h = Math.max(1, Math.min(bitmap.height - y, Math.round(rect.h * scaleY)));
+        try {
+          const pixels = context.getImageData(x, y, w, h).data;
+          candidate.visual = { ...(candidate.visual ?? {}), dhash: dhashFromRgba(pixels, w, h) };
+        } catch {
+          /* malformed crop */
+        }
+      }
+      runtime.visuals_enriched = (runtime.visuals_enriched ?? 0) + 1;
+      await saveRuntime({ visuals_enriched: runtime.visuals_enriched });
+    } catch (error) {
+      runtime.visuals_error = String((error as Error).message ?? error);
+      await saveRuntime({ visuals_error: runtime.visuals_error });
+    }
+  }
+
   async facts(): Promise<DriverFacts> {
     const facts = await tabMessage<DriverFacts>(this.tabId, { type: 'ib:facts' });
     if (!facts) throw new Error('no facts');
@@ -254,6 +299,29 @@ async function validateWithEngine(flow: Flow): Promise<void> {
   }
 }
 
+async function captureApprovalEvidence(
+  tabId: number,
+  runId: string,
+  stepId: string,
+): Promise<void> {
+  const tab = await chrome.tabs.get(tabId);
+  await chrome.tabs.update(tabId, { active: true });
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+  if (!dataUrl.startsWith('data:image/png;base64,')) {
+    throw new Error('evidence capture returned no PNG');
+  }
+  await chrome.storage.local.set({
+    [`evidence:${runId}:${stepId}`]: {
+      png: dataUrl,
+      step_id: stepId,
+      created_at: new Date().toISOString(),
+    },
+  });
+  runtime.evidence_count = (runtime.evidence_count ?? 0) + 1;
+  await saveRuntime({ evidence_count: runtime.evidence_count });
+}
+
 async function startRun(
   flowId: string,
   variables: Record<string, unknown>,
@@ -280,6 +348,10 @@ async function startRun(
     pending: null,
     error: null,
     action_log: [],
+    visuals_enriched: 0,
+    visuals_attempts: 0,
+    visuals_error: undefined,
+    evidence_count: 0,
   });
   void (async () => {
     try {
@@ -289,6 +361,11 @@ async function startRun(
         flow: stored.flow,
         variables,
         hooks: {
+          beforeApproval: async (summary, context) => {
+            const risk = (summary as { risk?: string }).risk ?? 'normal';
+            if (risk === 'normal' || !currentTabId || !runtime.run_id) return;
+            await captureApprovalEvidence(currentTabId, runtime.run_id, context.step_id);
+          },
           approve: async (summary) => {
             if (autoApprove) return true;
             return (await requestDecision('approval', summary)) === true;
@@ -396,10 +473,9 @@ async function stopRecording(): Promise<{ flow: Flow; warnings: string[] }> {
 
 async function reconcileRuntime(reason: string): Promise<void> {
   const state = await getRuntime();
-  if (activeRun || recording) return;
-  if (!['running', 'paused', 'recording'].includes(state.status)) return;
+  if (!isOrphanedSession(state.status, Boolean(activeRun), Boolean(recording))) return;
   await saveRuntime({
-    status: state.status === 'recording' ? 'idle' : 'failed',
+    status: reconciledStatus(state.status),
     pending: null,
     error: {
       code: 'EXTENSION_RESTARTED',

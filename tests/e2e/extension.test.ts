@@ -53,7 +53,9 @@ beforeAll(async () => {
     string,
     unknown
   >;
-  testManifest.host_permissions = ['http://127.0.0.1:4317/*'];
+  // captureVisibleTab needs <all_urls> or activeTab; the automated harness has
+  // no user gesture, so grant it only in the test build.
+  testManifest.host_permissions = ['<all_urls>'];
   writeFileSync(join(testExtensionDir, 'manifest.json'), JSON.stringify(testManifest, null, 2));
 
   userDataDir = mkdtempSync(join(tmpdir(), 'ib-ext-'));
@@ -197,6 +199,62 @@ describe.skipIf(!hasDisplay)('MV3 extension (real Chromium)', () => {
     expect(runtime.summary?.state, runtime.error?.message).toBe('SUCCEEDED');
     const stats = (await (await fetch(`${APP}/__stats`)).json()) as { submits: number };
     expect(stats.submits).toBeGreaterThanOrEqual(1);
+
+    // Re-run a copy with a visual anchor and a sensitive step: this exercises
+    // captureVisibleTab/OffscreenCanvas dHash enrichment and pre-approval evidence.
+    const mutated = await popup.evaluate(async (flowId) => {
+      const stored = (await chrome.storage.local.get('flows')) as {
+        flows: Record<string, { flow: { steps: Array<Record<string, any>> } }>;
+      };
+      const entry = stored.flows[flowId];
+      for (const step of entry.flow.steps) {
+        if (step.action === 'input') {
+          step.risk = 'sensitive';
+          step.target.anchors.visual = {
+            ...(step.target.anchors.visual ?? {}),
+            dhash: '0000000000000000',
+          };
+        }
+      }
+      await chrome.storage.local.set({ flows: stored.flows });
+      return entry.flow.steps.map((step) => ({
+        action: step.action,
+        risk: step.risk,
+        dhash: step.target?.anchors?.visual?.dhash,
+      }));
+    }, stopped.flow!.flow_id);
+    await popup.evaluate(
+      (args) =>
+        chrome.runtime.sendMessage({
+          type: 'ib:run-flow',
+          flowId: args.flowId,
+          tabId: args.tabId,
+          variables: {},
+          autoApprove: true,
+        }),
+      { flowId: stopped.flow!.flow_id, tabId: tabId as number },
+    );
+    let enriched: {
+      status?: string;
+      visuals_enriched?: number;
+      evidence_count?: number;
+      error?: { message?: string };
+    } = {};
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const response = (await popup.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'ib:get-runtime' }),
+      )) as { runtime: typeof enriched };
+      enriched = response.runtime ?? {};
+      if (enriched.status === 'finished') break;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+    }
+    expect(enriched.status).toBe('finished');
+    expect(enriched.error?.message ?? '').not.toContain('EVIDENCE');
+    expect(enriched.visuals_enriched ?? 0).toBeGreaterThan(0);
+    expect(enriched.evidence_count ?? 0).toBeGreaterThan(0);
+    expect(
+      ((await (await fetch(`${APP}/__stats`)).json()) as { submits: number }).submits,
+    ).toBeGreaterThanOrEqual(2);
     await popup.close();
     await fixturePage.close();
   }, 90_000);

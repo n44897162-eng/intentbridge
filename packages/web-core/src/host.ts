@@ -55,7 +55,10 @@ export interface BrowserDriver {
 
 export interface RunHooks {
   approve?: (summary: unknown) => Promise<boolean> | boolean;
-  beforeApproval?: (summary: unknown) => Promise<void> | void;
+  beforeApproval?: (
+    summary: unknown,
+    context: { step_id: string; attempt_id: string },
+  ) => Promise<void> | void;
   disambiguate?: (
     candidates: RankedCandidate[],
     reason: string,
@@ -487,7 +490,10 @@ export async function runFlow(options: {
             return finish('PAUSED_FOR_APPROVAL', 'paused', null);
           }
           try {
-            await hooks.beforeApproval?.(output.summary);
+            await hooks.beforeApproval?.(output.summary, {
+              step_id: output.step_id,
+              attempt_id: output.attempt_id,
+            });
           } catch (error) {
             return finish('FAILED', 'failed', {
               code: 'EVIDENCE_WRITE_FAILED',

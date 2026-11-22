@@ -15,6 +15,8 @@ interface RuntimeState {
   pending?: { kind: string; payload: unknown } | null;
   events?: number;
   summary?: { status: string; state: string };
+  visuals_enriched?: number;
+  evidence_count?: number;
 }
 
 const root = document.getElementById('root') as HTMLElement;
@@ -75,6 +77,12 @@ async function refreshStatus(): Promise<void> {
       : el('span'),
     runtime.events !== undefined
       ? el('div', { className: 'muted small' }, `事件：${runtime.events}`)
+      : el('span'),
+    runtime.visuals_enriched
+      ? el('div', { className: 'muted small' }, `视觉增强：${runtime.visuals_enriched}`)
+      : el('span'),
+    runtime.evidence_count
+      ? el('div', { className: 'muted small' }, `审计证据：${runtime.evidence_count}`)
       : el('span'),
   );
   renderPending();
