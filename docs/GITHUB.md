@@ -3,7 +3,7 @@
 ## 方式 A：命令行（推荐）
 
 ```bash
-cd /root/dsh/intentbridge
+cd intentbridge   # 仓库根目录
 git remote add origin git@github.com:<owner>/<repo>.git
 git branch -M main
 git push -u origin main
