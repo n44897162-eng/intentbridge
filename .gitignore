@@ -13,3 +13,14 @@ local.properties
 **/obj/
 .gradle/
 local.properties
+
+# Generated build/release assets (use `pnpm package` or GitHub Releases)
+artifacts/android/
+artifacts/windows/
+artifacts/intentbridge-*.zip
+artifacts/intentbridge-*.tar.gz
+artifacts/SHA256SUMS
+apps/android-app/app/src/main/jniLibs/
+**/.kotlin/
+.idea/
+.vscode/

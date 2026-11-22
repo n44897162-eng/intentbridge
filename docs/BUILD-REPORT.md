@@ -13,7 +13,7 @@ dotnet build apps/windows-executor/IntentBridge.Executor.csproj -c Release
 ```
 
 - 结果：两个项目均 **Build succeeded，0 warning / 0 error**。
-- 产物：`artifacts/windows/*.dll`、deps/runtimeconfig。
+- 产物：构建输出目录中的 DLL/deps/runtimeconfig；`pnpm package` 会复制到 `artifacts/windows/`（不提交）。
 - 未验证：UIA 在真实 Windows 桌面的行为、DPI/多显示器/UAC、NamedPipe IPC 跨用户、Rust `ib_runtime.dll` 的 Windows 链接（本机没有 MSVC/Windows 目标）。
 - 复现：`node scripts/build-platforms.mjs`。
 
@@ -48,15 +48,15 @@ Java_com_intentbridge_app_NativeEngine_nativeDestroy
 
 ## 产物与校验和
 
-见 `artifacts/SHA256SUMS`：Android APK、Windows 托管程序集、扩展 zip、源码 tar.gz。
+由 `pnpm package` 生成并在 GitHub Release 发布；源仓库不提交这些二进制。
 
-| 产物                                                    | 大小            |
-| ------------------------------------------------------- | --------------- |
-| `artifacts/android/IntentBridge-0.1.0-debug.apk`        | 14 MB（含 JNI） |
-| `artifacts/android/IntentBridgeFixture-0.1.0-debug.apk` | 7.0 MB          |
-| `artifacts/intentbridge-extension-0.1.0.zip`            | 669 KB          |
-| `artifacts/windows/IntentBridge.Executor.dll`           | 32 KB           |
-| `artifacts/windows/IntentBridge.Fixture.dll`            | 13 KB           |
+| 产物                                  | 大小               |
+| ------------------------------------- | ------------------ |
+| `IntentBridge-0.1.0-debug.apk`        | 约 18 MB（含 JNI） |
+| `IntentBridgeFixture-0.1.0-debug.apk` | 7.0 MB             |
+| `intentbridge-extension-0.1.0.zip`    | 约 700 KB          |
+| `IntentBridge.Executor.dll`           | 32 KB              |
+| `IntentBridge.Fixture.dll`            | 13 KB              |
 
 ## 结论
 

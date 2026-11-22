@@ -1,10 +1,10 @@
 # 产物安装、升级与卸载
 
-所有产物与 SHA-256 见 `artifacts/SHA256SUMS`，组件清单见 `sbom/intentbridge-sbom.json`。
+发布产物从 GitHub Release 下载（文件名含版本号），SHA-256 见 Release 中的 `SHA256SUMS`；组件清单见 `sbom/intentbridge-sbom.json`。本地构建产物在 `artifacts/`，不提交 git。
 
 ## Web 扩展（MV3）
 
-- 包：`artifacts/intentbridge-extension-0.1.0.zip`（生产 manifest，无默认站点权限）。
+- 包：Release 中的 `intentbridge-extension-0.1.0.zip`（生产 manifest，无默认站点权限）。
 - 开发安装：解压后在 `chrome://extensions` 打开开发者模式，选择“加载已解压的扩展程序”指向解压目录。
 - 升级：替换目录后点击扩展卡片上的刷新；`chrome.storage.local` 中的流程保留。
 - 卸载：移除扩展即删除扩展存储；不影响管理端 `.data`。
@@ -12,7 +12,7 @@
 
 ## Android（debug APK，非生产签名）
 
-- `artifacts/android/IntentBridge-0.1.0-debug.apk`，含 arm64-v8a / x86_64 JNI。
+- Release 中的 `IntentBridge-0.1.0-debug.apk`，含 arm64-v8a / x86_64 JNI。
 - 安装：
 
 ```bash
@@ -27,7 +27,7 @@ adb install -r artifacts/android/IntentBridgeFixture-0.1.0-debug.apk
 
 ## Windows（编译验证产物）
 
-- `artifacts/windows/*.dll` 是 Linux 交叉编译的托管程序集，用于证明源码可编译；**不是可直接双击的 Windows 安装包**。
+- Release 中的 `windows/*.dll` 是 Linux 交叉编译的托管程序集，用于证明源码可编译；**不是可直接双击的 Windows 安装包**。
 - 在 Windows 上生成可运行产物：
 
 ```powershell
@@ -50,4 +50,4 @@ cmdkey /generic:IntentBridge:bank-pin /user:intentbridge /pass:<口令>
 
 ## 源码包
 
-`artifacts/intentbridge-0.1.0-source.tar.gz` 包含源码、锁文件、夹具与文档，不含 node_modules/target/构建产物。解压后按 `docs/runbooks/INSTALL.md` 构建。
+Release 中的 `intentbridge-0.1.0-source.tar.gz` 包含源码、锁文件、夹具与文档，不含 node_modules/target/构建产物。解压后按 `docs/runbooks/INSTALL.md` 构建。

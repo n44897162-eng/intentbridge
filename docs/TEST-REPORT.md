@@ -29,7 +29,7 @@
 | Web 30 次长跑                                       | 通过     | 1                                                                    |
 | **合计**                                            | **全绿** | **47 Rust + 69 TS**                                                  |
 
-运行命令：`pnpm gate`（锁文件、类型、rustfmt、clippy -D warnings、cargo test、release/WASM、Windows/Android 构建、全部 TS 测试、lint、格式、SBOM、打包）。
+运行命令：`pnpm gate`（锁文件、类型、rustfmt、clippy -D warnings、cargo test、release/WASM、Windows/Android 构建、全部 TS 测试、lint、格式、SBOM）。发布产物用 `.github/workflows/release.yml` 生成。
 
 ## 关键验收证据
 

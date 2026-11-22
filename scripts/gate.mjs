@@ -36,7 +36,6 @@ const steps = [
   ['lint', 'node', ['scripts/lint.mjs']],
   ['format check', 'pnpm', ['exec', 'prettier', '--check', '.']],
   ['sbom', 'node', ['scripts/sbom.mjs']],
-  ['package artifacts', 'node', ['scripts/package.mjs']],
 ];
 
 const results = [];

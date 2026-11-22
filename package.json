@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:rust": "cargo test --workspace",
     "gate": "node scripts/gate.mjs",
+    "package": "node scripts/package.mjs",
     "fixture:web": "pnpm --filter @intentbridge/web-fixture start",
     "shell:web": "pnpm --filter @intentbridge/web-shell start",
     "sbom": "node scripts/sbom.mjs"

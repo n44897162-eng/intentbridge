@@ -31,7 +31,7 @@
 ## 快速开始（Web）
 
 ```bash
-cd intentbridge
+cd intentbridge   # 仓库根目录
 corepack enable && pnpm install          # Node >= 22（本机 24.22）
 pnpm build                                # 构建 Rust/WASM、TS 包、扩展、管理界面
 pnpm fixture:web                          # 夹具应用 http://127.0.0.1:4317
@@ -66,11 +66,18 @@ pnpm --filter @intentbridge/web-extension build
 
 ---
 
+## 下载与发布
+
+源码仓库不提交 APK/DLL/zip；推送 `v*` tag 后，[`.github/workflows/release.yml`](.github/workflows/release.yml) 会构建并挂到 GitHub Release。
+
+本地生成：`pnpm package`（需要 .NET/Android SDK；见 [`docs/GITHUB.md`](docs/GITHUB.md)）。
+
 ## 验证
 
 ```bash
 pnpm gate        # 锁文件、类型检查、rustfmt、clippy -D warnings、cargo test、
                  # WASM/native 构建、全部 TS 测试、lint、格式检查、SBOM
+pnpm package     # 可选：生成 release 二进制（需要平台工具链）
 ```
 
 单独运行：
