@@ -10,10 +10,16 @@ await mkdir(dirname(target), { recursive: true });
 try {
   await stat(source);
 } catch {
-  console.error(
-    'wasm artifact missing; run: cargo build -p ib-runtime --lib --release --target wasm32-unknown-unknown',
-  );
-  process.exit(1);
+  try {
+    await stat(target);
+    console.warn('target wasm missing; keeping the checked-in runtime package');
+    process.exit(0);
+  } catch {
+    console.error(
+      'wasm artifact missing; run: cargo build -p ib-runtime --lib --release --target wasm32-unknown-unknown',
+    );
+    process.exit(1);
+  }
 }
 await copyFile(source, target);
 console.log('copied ib_runtime.wasm');
