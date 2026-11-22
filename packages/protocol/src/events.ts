@@ -15,6 +15,7 @@ export const RUN_EVENT_TYPES = [
   'StepFailed',
   'RunPaused',
   'RunFinished',
+  'RunCancelled',
   'StateChanged',
   'VariableSet',
   'CompensationRecorded',

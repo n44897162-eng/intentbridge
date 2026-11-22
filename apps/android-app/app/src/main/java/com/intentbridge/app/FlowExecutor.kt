@@ -227,7 +227,9 @@ class FlowExecutor(private val context: Context) {
             }
             return Result("paused", "PAUSED_FOR_RECOVERY", JSONObject().put("code", "RUNTIME_LIMIT_EXCEEDED").put("message", "step loop cap"))
         } catch (error: Exception) {
-            return Result("failed", "FAILED", JSONObject().put("code", "INTERNAL_ERROR").put("message", error.message ?: "executor failure"))
+            val payload = JSONObject().put("code", "INTERNAL_ERROR").put("message", error.message ?: "executor failure")
+            repository.updateRun(runId, "failed", "FAILED", payload.toString())
+            return Result("failed", "FAILED", payload)
         } finally {
             engine.close()
         }

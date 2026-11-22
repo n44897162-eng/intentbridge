@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-22T03:38:51.094Z",
-  "planner_p95_ms": 2.1880439999986265,
+  "generated_at": "2026-11-22T04:22:11.260Z",
+  "planner_p95_ms": 2.657086999999592,
   "planner_samples": 15,
-  "total_elapsed_ms": 1130.2675889999991,
+  "total_elapsed_ms": 1147.6160990000008,
   "actions": 4
 }

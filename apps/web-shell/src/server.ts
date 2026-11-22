@@ -7,7 +7,7 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,7 @@ import { buildFlowFromRecording, type Recording } from '@intentbridge/web-core';
 import { assertLoopback, createSessionToken } from '@intentbridge/protocol';
 import { AppDatabase } from './db.js';
 import { LocalSecretStore } from './secrets.js';
+import { coerceFlowVariables } from './variables.js';
 import { RunManager, defaultSettings, type ShellSettings } from './runs.js';
 import { decryptFlowPackage, encryptFlowPackage, isEncryptedPackage } from './package.js';
 
@@ -206,10 +207,16 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
       });
     }
     let flow = loaded.flow;
-    if (forceNewId) {
-      flow = { ...flow, flow_id: randomUUID(), revision: 1, updated_at: new Date().toISOString() };
-      flow.created_at = flow.created_at ?? new Date().toISOString();
-    }
+    const importedAt = new Date().toISOString();
+    // The stored revision slot is always 1; the document must commit to the
+    // same revision/hash or revision history becomes self-contradictory.
+    flow = {
+      ...flow,
+      revision: 1,
+      created_at: importedAt,
+      updated_at: importedAt,
+      ...(forceNewId ? { flow_id: randomUUID() } : {}),
+    };
     const existing = db.getFlow(flow.flow_id);
     if (existing) throw new HttpError(409, 'FLOW_EXISTS', 'a flow with this id already exists');
     const hash = hashJson(flow);
@@ -280,7 +287,11 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
         return true;
       }
       if (method === 'PUT') {
-        const body = (await readBody(req)) as { flow?: Flow; created_by?: string };
+        const body = (await readBody(req)) as {
+          flow?: Flow;
+          created_by?: string;
+          base_revision?: number;
+        };
         if (!body.flow || typeof body.flow !== 'object')
           throw new HttpError(400, 'INVALID_BODY', 'flow is required');
         if (body.flow.flow_id !== flowId)
@@ -293,13 +304,26 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
             'flow validation failed',
             validationPayload(validation),
           );
-        const hash = hashJson(body.flow);
-        const revision = db.saveFlow(
-          { ...body.flow, updated_at: new Date().toISOString() },
-          hash,
-          body.created_by ?? 'shell',
-        );
-        json(res, 200, { revision, hash, warnings: validation.warnings });
+        let saved: { revision: number; hash: string };
+        try {
+          saved = db.saveFlow(
+            body.flow,
+            body.created_by ?? 'shell',
+            typeof body.base_revision === 'number' ? body.base_revision : undefined,
+          );
+        } catch (error) {
+          if (String((error as Error).message).includes('REVISION_CONFLICT')) {
+            throw new HttpError(409, 'REVISION_CONFLICT', 'the flow changed since it was loaded', {
+              current_revision: db.getFlow(body.flow.flow_id)?.revision ?? null,
+            });
+          }
+          throw error;
+        }
+        json(res, 200, {
+          revision: saved.revision,
+          hash: saved.hash,
+          warnings: validation.warnings,
+        });
         return true;
       }
       if (method === 'DELETE') {
@@ -395,10 +419,16 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
             validationPayload(execution),
           );
         }
+        const coerced = coerceFlowVariables(record.flow, body.variables ?? {});
+        if (coerced.errors.length > 0) {
+          throw new HttpError(422, 'INVALID_VARIABLES', 'run variables are invalid', {
+            errors: coerced.errors,
+          });
+        }
         let runId: string;
         try {
           runId = runs.start(record.flow, {
-            variables: body.variables ?? {},
+            variables: coerced.variables,
             trigger: body.trigger ?? 'manual',
             autoApprove: body.auto_approve === true,
             pickFirst: body.pick === 'first',
@@ -486,13 +516,16 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
     if (segments[1] === 'evidence' && segments.length === 3 && method === 'GET') {
       const record = db.getEvidence(segments[2] as string);
       if (!record) throw new HttpError(404, 'EVIDENCE_NOT_FOUND', 'evidence not found');
-      const evidenceRoot = resolve(dataDir, 'evidence');
+      const evidenceRoot = realpathSync(resolve(dataDir, 'evidence'));
       const filePath = resolve(record.path);
       if (!filePath.startsWith(evidenceRoot + '/')) {
         throw new HttpError(403, 'FORBIDDEN', 'evidence path escapes the data directory');
       }
       if (!existsSync(filePath))
         throw new HttpError(404, 'EVIDENCE_NOT_FOUND', 'evidence file is gone');
+      if (!realpathSync(filePath).startsWith(evidenceRoot + '/')) {
+        throw new HttpError(403, 'FORBIDDEN', 'evidence symlink escapes the data directory');
+      }
       res.writeHead(200, {
         'content-type': 'image/png',
         'content-length': statSync(filePath).size,

@@ -511,8 +511,10 @@ pub struct Engine {
     confirmed_writes: u64,
     finished_output: bool,
     approval_granted_for: Option<String>,
+    prepared_attempt: Option<String>,
     single_step: bool,
     scroll_attempts: u32,
+    attempt_offset: u32,
     recovery_reason: Option<String>,
 }
 
@@ -529,24 +531,41 @@ fn err(code: &str, message: &str) -> BridgeError {
 
 fn sensitive_key(key: &str) -> bool {
     let lower = key.to_lowercase();
+    let tokens: Vec<&str> = lower
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect();
+    if tokens
+        .iter()
+        .any(|token| *token == "apikey" || *token == "pin")
+    {
+        return true;
+    }
+    if tokens.windows(2).any(|pair| pair == ["api", "key"]) {
+        return true;
+    }
     [
         "password",
         "passwd",
         "secret",
         "token",
         "otp",
-        "pin",
         "card",
         "cvv",
         "credential",
-        "api_key",
-        "apikey",
     ]
     .iter()
-    .any(|needle| lower.contains(needle))
+    .any(|needle| tokens.iter().any(|token| token.contains(needle)))
 }
 
 pub fn preview_params(value: &Value) -> Value {
+    preview_params_with_secrets(value, &[])
+}
+
+/// Redacts secret-keyed fields and any occurrence of known sensitive variable
+/// values. Templates are resolved before execution, so this must run on the
+/// resolved parameters used for the event log/UI preview.
+pub fn preview_params_with_secrets(value: &Value, secrets: &[String]) -> Value {
     match value {
         Value::Object(map) => {
             let mut out = Map::new();
@@ -560,17 +579,27 @@ pub fn preview_params(value: &Value) -> Value {
                     }
                     out.insert(key.clone(), json!("«redacted»"));
                 } else {
-                    out.insert(key.clone(), preview_params(item));
+                    out.insert(key.clone(), preview_params_with_secrets(item, secrets));
                 }
             }
             Value::Object(out)
         }
-        Value::Array(items) => Value::Array(items.iter().map(preview_params).collect()),
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| preview_params_with_secrets(item, secrets))
+                .collect(),
+        ),
         Value::String(text) => {
             if secret_ref(text).is_some() {
                 Value::String(text.clone())
-            } else if text.len() > 200 {
-                Value::String(format!("{}…", &text[..200]))
+            } else if secrets
+                .iter()
+                .any(|secret| !secret.is_empty() && text.contains(secret.as_str()))
+            {
+                Value::String("«redacted»".into())
+            } else if text.chars().count() > 200 {
+                Value::String(format!("{}…", text.chars().take(200).collect::<String>()))
             } else {
                 Value::String(text.clone())
             }
@@ -624,8 +653,10 @@ impl Engine {
             confirmed_writes: 0,
             finished_output: false,
             approval_granted_for: None,
+            prepared_attempt: None,
             single_step: false,
             scroll_attempts: 0,
+            attempt_offset: 0,
             recovery_reason: None,
         }
     }
@@ -941,16 +972,22 @@ impl Engine {
         self.phase = Phase::Pre;
         self.pre_index = 0;
         self.post_index = 0;
-        self.attempt = 0;
+        self.attempt = self.attempt_offset;
+        self.attempt_offset = 0;
         self.attempt_id.clear();
         self.resolved = None;
         self.manual_override = false;
         self.last_error = None;
         self.approval_granted_for = None;
+        self.prepared_attempt = None;
         self.scroll_attempts = 0;
         self.step_deadline = self.now
             + step
                 .timeout_ms
+                .or(flow
+                    .defaults
+                    .as_ref()
+                    .and_then(|defaults| defaults.timeout_ms))
                 .map(|value| value as f64)
                 .unwrap_or(self.config.default_timeout_ms);
         self.set_state(EngineState::Running);
@@ -1407,51 +1444,6 @@ impl Engine {
     }
 
     fn after_resolution(&mut self) -> Result<StepOutput, BridgeError> {
-        let step = self.step()?;
-        if self.approval_required(&step)
-            && self.approval_granted_for.as_deref() != Some(self.attempt_id.as_str())
-        {
-            let summary = ApprovalSummary {
-                action: step.action.as_str().to_string(),
-                risk: self.risk(&step),
-                step_name: step.name.clone(),
-                target_label: self.target_label(),
-                params_preview: preview_params(&step.params.clone().unwrap_or_else(|| json!({}))),
-                reasons: self
-                    .last_ranking
-                    .iter()
-                    .find(|item| {
-                        self.resolved
-                            .as_ref()
-                            .map(|resolved| resolved.candidate_id == item.candidate.candidate_id)
-                            .unwrap_or(false)
-                    })
-                    .map(|item| item.reasons.clone())
-                    .unwrap_or_default(),
-            };
-            self.pending = Pending::Approval {
-                step_id: step.id.clone(),
-                attempt_id: self.attempt_id.clone(),
-            };
-            self.set_state(EngineState::PausedForApproval);
-            self.emit(
-                "ApprovalRequested",
-                Some(step.id.clone()),
-                Some(self.attempt_id.clone()),
-                json!({ "risk": summary.risk, "action": summary.action }),
-            );
-            self.emit(
-                "RunPaused",
-                Some(step.id.clone()),
-                Some(self.attempt_id.clone()),
-                json!({ "reason": "approval" }),
-            );
-            return Ok(self.output(Directive::AwaitApproval {
-                step_id: step.id,
-                attempt_id: self.attempt_id.clone(),
-                summary,
-            }));
-        }
         self.perform_action()
     }
 
@@ -1513,17 +1505,88 @@ impl Engine {
 
     fn perform_action(&mut self) -> Result<StepOutput, BridgeError> {
         let step = self.step()?;
-        self.attempt += 1;
-        self.attempt_id = format!(
-            "{}-s{}-a{}",
-            self.run_id_short(),
-            self.step_index,
-            self.attempt
-        );
+        if self.prepared_attempt.as_deref() != Some(self.attempt_id.as_str()) {
+            self.attempt += 1;
+            self.attempt_id = format!(
+                "{}-s{}-a{}",
+                self.run_id_short(),
+                self.step_index,
+                self.attempt
+            );
+        }
+        if self.approval_required(&step)
+            && self.approval_granted_for.as_deref() != Some(self.attempt_id.as_str())
+        {
+            self.prepared_attempt = Some(self.attempt_id.clone());
+            let sensitive_values: Vec<String> = self
+                .sensitive_variables
+                .iter()
+                .filter_map(|name| self.variables.get(name))
+                .map(|value| match value {
+                    Value::String(text) => text.clone(),
+                    other => other.to_string(),
+                })
+                .filter(|value| !value.is_empty())
+                .collect();
+            let summary = ApprovalSummary {
+                action: step.action.as_str().to_string(),
+                risk: self.risk(&step),
+                step_name: step.name.clone(),
+                target_label: self.target_label(),
+                params_preview: preview_params_with_secrets(
+                    &step.params.clone().unwrap_or_else(|| json!({})),
+                    &sensitive_values,
+                ),
+                reasons: self
+                    .last_ranking
+                    .iter()
+                    .find(|item| {
+                        self.resolved
+                            .as_ref()
+                            .map(|resolved| resolved.candidate_id == item.candidate.candidate_id)
+                            .unwrap_or(false)
+                    })
+                    .map(|item| item.reasons.clone())
+                    .unwrap_or_default(),
+            };
+            self.pending = Pending::Approval {
+                step_id: step.id.clone(),
+                attempt_id: self.attempt_id.clone(),
+            };
+            self.set_state(EngineState::PausedForApproval);
+            self.emit(
+                "ApprovalRequested",
+                Some(step.id.clone()),
+                Some(self.attempt_id.clone()),
+                json!({ "risk": summary.risk, "action": summary.action }),
+            );
+            self.emit(
+                "RunPaused",
+                Some(step.id.clone()),
+                Some(self.attempt_id.clone()),
+                json!({ "reason": "approval" }),
+            );
+            return Ok(self.output(Directive::AwaitApproval {
+                step_id: step.id,
+                attempt_id: self.attempt_id.clone(),
+                summary,
+            }));
+        }
+        self.prepared_attempt = None;
         self.phase = Phase::Action;
         let params = step.params.clone().unwrap_or_else(|| json!({})).clone();
         let resolved_params = self.resolve_value(&params)?;
-        let preview = preview_params(&resolved_params);
+        let sensitive_values: Vec<String> = self
+            .sensitive_variables
+            .iter()
+            .filter_map(|name| self.variables.get(name))
+            .map(|value| match value {
+                Value::String(text) => text.clone(),
+                other => other.to_string(),
+            })
+            .filter(|value| !value.is_empty())
+            .collect();
+        let preview = preview_params_with_secrets(&resolved_params, &sensitive_values);
         let idempotency = self.idempotency_key(&step);
         if step.action == Action::Scroll {
             self.scroll_attempts += 1;
@@ -1623,11 +1686,10 @@ impl Engine {
                 "action result does not match the pending action",
             ));
         }
-        if let Some(facts) = &facts {
-            if !self.scope_matches(facts.app_scope.as_deref()) {
-                return Ok(self.pause_for_scope(facts.app_scope.as_deref()));
-            }
-        }
+        let scope_violation = facts
+            .as_ref()
+            .map(|facts| !self.scope_matches(facts.app_scope.as_deref()))
+            .unwrap_or(false);
         match outcome {
             "unknown" => {
                 let mut bridge =
@@ -1641,7 +1703,27 @@ impl Engine {
                 self.side_effect_pending = false;
                 return self.handle_action_failure(bridge);
             }
-            "succeeded" => {}
+            "succeeded" => {
+                if scope_violation {
+                    if step.action.is_mutating() {
+                        return self.pause_outcome(
+                            err(
+                                "APP_SCOPE_VIOLATION",
+                                "action completed outside the app scope",
+                            )
+                            .retryable(false),
+                            "attempted",
+                        );
+                    }
+                    return self.fail_step(
+                        err(
+                            "APP_SCOPE_VIOLATION",
+                            "action completed outside the app scope",
+                        )
+                        .retryable(false),
+                    );
+                }
+            }
             other => {
                 return Err(err("INVALID_STATE", "unknown action outcome")
                     .with_detail(json!({ "outcome": other })));
@@ -1650,7 +1732,6 @@ impl Engine {
         if step.action.is_mutating() {
             self.confirmed_writes += 1;
         }
-        self.side_effect_pending = false;
         if step.action == Action::ReadText {
             let params = step.params.clone().unwrap_or_else(|| json!({}));
             let name = params
@@ -1733,7 +1814,7 @@ impl Engine {
             "RunPaused",
             Some(step.id.clone()),
             Some(self.attempt_id.clone()),
-            json!({ "reason": "outcome_unknown" }),
+            json!({ "reason": "outcome_unknown", "error": error }),
         );
         self.set_state(EngineState::PausedForOutcome);
         self.pending = Pending::Outcome {
@@ -1980,6 +2061,7 @@ impl Engine {
 
     fn complete_step_success(&mut self) -> Result<StepOutput, BridgeError> {
         let step = self.step()?;
+        self.side_effect_pending = false;
         self.emit(
             "StepSucceeded",
             Some(step.id.clone()),
@@ -2075,7 +2157,8 @@ impl Engine {
         {
             Some(mode) if mode == "ask-user" => {
                 let mut options = vec!["skip".to_string(), "stop".to_string()];
-                if self.attempt < self.max_attempts(&step) || step.action.is_read_only() {
+                if self.attempt < self.max_attempts(&step) && self.retryable_failure(&step, &error)
+                {
                     options.insert(0, "retry".to_string());
                 }
                 if step.compensation_step_id.is_some() {
@@ -2181,6 +2264,27 @@ impl Engine {
             | EngineInput::Tick { now_mono_ms } => *now_mono_ms,
         };
         self.now_from(now)?;
+        let maxed = !self.state.is_terminal()
+            && !self.run_id.is_empty()
+            && self.now - self.started_mono > self.config.max_runtime_ms;
+        if maxed {
+            if matches!(input, EngineInput::Cancel { .. }) {
+                return self.finish_cancelled("run exceeded max_runtime_ms");
+            }
+            if !matches!(
+                input,
+                EngineInput::ActionDone { .. } | EngineInput::OutcomeDecision { .. }
+            ) {
+                if matches!(self.pending, Pending::Action { .. }) {
+                    return self.pause_outcome(
+                        err("TIMEOUT", "run exceeded max_runtime_ms").retryable(false),
+                        "attempted",
+                    );
+                }
+                return self
+                    .finish_failed(err("TIMEOUT", "run exceeded max_runtime_ms").retryable(false));
+            }
+        }
         match input {
             EngineInput::Candidates {
                 step_id,
@@ -2340,6 +2444,7 @@ impl Engine {
                         self.complete_step_success()
                     }
                     "failed" => {
+                        self.side_effect_pending = false;
                         self.emit(
                             "Diagnostic",
                             Some(step_id.clone()),
@@ -2362,7 +2467,7 @@ impl Engine {
                             Some(attempt_id.clone()),
                             json!({ "reason": "manual_retry", "idempotency_key": self.idempotency_key(&step) }),
                         );
-                        self.attempt = self.attempt.saturating_sub(1);
+                        self.prepared_attempt = None;
                         if step.target.is_some() {
                             self.begin_resolve()
                         } else {
@@ -2379,6 +2484,12 @@ impl Engine {
                 }
                 if matches!(self.pending, Pending::Recovery { .. }) {
                     return Err(err("INVALID_STATE", "run is already paused"));
+                }
+                if matches!(self.pending, Pending::Action { .. }) {
+                    return Err(err(
+                        "INVALID_STATE",
+                        "cannot pause while a platform action is in flight",
+                    ));
                 }
                 let step_id = self.step().ok().map(|step| step.id);
                 self.emit(
@@ -2429,7 +2540,7 @@ impl Engine {
                     }
                     "retry" => {
                         let index = self.recovery_step.unwrap_or(self.step_index);
-                        self.attempt = 0;
+                        self.attempt_offset = self.attempt;
                         self.set_state(EngineState::Running);
                         self.begin_step(index)
                     }
@@ -2483,7 +2594,18 @@ impl Engine {
         match self.pending.clone() {
             Pending::Timer { wake_at } => {
                 if self.now + 1e-6 >= wake_at {
-                    self.begin_resolve()
+                    // A retry either re-resolves a target or re-performs a
+                    // targetless action (launch). Resolving without a target
+                    // would fail the run incorrectly.
+                    if self
+                        .step()
+                        .map(|step| step.target.is_some())
+                        .unwrap_or(false)
+                    {
+                        self.begin_resolve()
+                    } else {
+                        self.perform_action()
+                    }
                 } else {
                     let step_id = self.step().ok().map(|step| step.id);
                     Ok(self.output(Directive::AwaitTimer {

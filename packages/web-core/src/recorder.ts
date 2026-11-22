@@ -187,12 +187,13 @@ export function buildFlowFromRecording(
   let index = 0;
   for (const event of events) {
     index += 1;
-    const action: StepAction = event.type === 'input' ? 'input' : 'click';
+    const action: StepAction =
+      event.type === 'input' ? 'input' : event.type === 'select' ? 'select' : 'click';
     const step: Step = {
       id: `step-${index}`,
       action,
       name:
-        (action === 'input' ? '输入：' : '点击：') +
+        (action === 'input' ? '输入：' : action === 'select' ? '选择：' : '点击：') +
         (event.candidate.semantic?.name ??
           event.candidate.semantic?.test_id ??
           event.candidate.candidate_id),
@@ -205,10 +206,15 @@ export function buildFlowFromRecording(
         retention_days: 7,
         mask_text: true,
       },
-      postconditions: [inferPostcondition(event, orderedSeen, warnings)],
+      postconditions:
+        action === 'select'
+          ? [windowStable(200)]
+          : [inferPostcondition(event, orderedSeen, warnings)],
       ...(action === 'input'
         ? { params: { value: event.value ?? '', clear_first: true, typing_delay_ms: 0 } }
-        : { params: { button: 'left', click_count: 1 } }),
+        : action === 'select'
+          ? { params: { value: event.value ?? '', by: 'value' } }
+          : { params: { button: 'left', click_count: 1 } }),
     };
     steps.push(step);
   }
@@ -218,6 +224,7 @@ export function buildFlowFromRecording(
   const permissions = new Set<Permission>(['read-ui', 'read-screen']);
   if (usedActions.has('click')) permissions.add('click');
   if (usedActions.has('input')) permissions.add('type');
+  if (usedActions.has('select')) permissions.add('select');
   permissions.add('launch');
   permissions.add('navigate');
 

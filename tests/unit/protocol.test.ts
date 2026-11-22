@@ -69,6 +69,16 @@ describe('engine input validation', () => {
     );
   });
 
+  it('accepts pause and recovery decisions (used by non-web hosts)', () => {
+    expect(validateEngineInput({ kind: 'Pause', now_mono_ms: 10 })).toEqual([]);
+    expect(
+      validateEngineInput({ kind: 'RecoveryDecision', now_mono_ms: 10, decision: 'resume' }),
+    ).toEqual([]);
+    expect(validateEngineInput({ kind: 'RecoveryDecision', now_mono_ms: 10 })).toContain(
+      'decision required',
+    );
+  });
+
   it('accepts a well-formed observation', () => {
     expect(
       validateEngineInput({
@@ -88,7 +98,7 @@ describe('run event envelope', () => {
     event_id: 'evt-0123456789abcdef',
     run_id: 'run-00000001',
     seq: 1,
-    type: 'RunStarted',
+    type: 'RunCancelled',
     ts: '2026-01-01T00:00:00.000Z',
     mono_ms: 0,
     payload: {},

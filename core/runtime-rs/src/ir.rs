@@ -343,48 +343,22 @@ fn walk_strings<'a>(value: &'a Value, path: &str, out: &mut Vec<(String, &'a str
     }
 }
 
-fn param_keys(value: &Value) -> BTreeSet<&'static str> {
-    let mut keys = BTreeSet::new();
-    if let Value::Object(map) = value {
-        for key in map.keys() {
-            keys.insert(match key.as_str() {
-                "app_id" => "app_id",
-                "url" => "url",
-                "arguments" => "arguments",
-                "wait_ready" => "wait_ready",
-                "url_pattern" => "url_pattern",
-                "window_title" => "window_title",
-                "process_name" => "process_name",
-                "condition" => "condition",
-                "poll_interval_ms" => "poll_interval_ms",
-                "button" => "button",
-                "click_count" => "click_count",
-                "modifiers" => "modifiers",
-                "verify_enabled" => "verify_enabled",
-                "value" => "value",
-                "clear_first" => "clear_first",
-                "submit" => "submit",
-                "typing_delay_ms" => "typing_delay_ms",
-                "by" => "by",
-                "direction" => "direction",
-                "amount" => "amount",
-                "max_attempts" => "max_attempts",
-                "boundary_condition" => "boundary_condition",
-                "output_variable" => "output_variable",
-                "max_chars" => "max_chars",
-                "sensitive" => "sensitive",
-                "message" => "message",
-                "name" => "name",
-                "goto_step_id" => "goto_step_id",
-                "else_step_id" => "else_step_id",
-                "compensation_step_id" => "compensation_step_id",
-                "reason" => "reason",
-                "status" => "status",
-                _ => "",
-            });
-        }
+fn allowed_param_keys(action: Action) -> &'static [&'static str] {
+    match action {
+        Action::Launch => &["app_id", "url", "arguments", "wait_ready"],
+        Action::Activate => &["url_pattern", "window_title", "process_name"],
+        Action::Wait => &["condition", "poll_interval_ms"],
+        Action::Click => &["button", "click_count", "modifiers", "verify_enabled"],
+        Action::Input => &["value", "clear_first", "submit", "typing_delay_ms"],
+        Action::Select => &["value", "by"],
+        Action::Scroll => &["direction", "amount", "max_attempts", "boundary_condition"],
+        Action::ReadText => &["output_variable", "max_chars", "sensitive"],
+        Action::Assert => &["condition", "message"],
+        Action::SetVariable => &["name", "value", "sensitive"],
+        Action::Branch => &["condition", "goto_step_id", "else_step_id"],
+        Action::Compensate => &["compensation_step_id", "reason"],
+        Action::End => &["status", "message"],
     }
-    keys
 }
 
 fn diag(
@@ -737,7 +711,15 @@ pub fn validate_flow(
                 ),
             );
         }
-        if step.timeout_ms.unwrap_or(30_000) > limits.max_step_timeout_ms {
+        if step
+            .timeout_ms
+            .or(flow
+                .defaults
+                .as_ref()
+                .and_then(|defaults| defaults.timeout_ms))
+            .unwrap_or(30_000)
+            > limits.max_step_timeout_ms
+        {
             diag(
                 &mut issues,
                 "error",
@@ -794,7 +776,7 @@ pub fn validate_flow(
             );
         }
 
-        // Params: per-action requirements and allowed keys.
+        // Params: per-action allowed keys, required fields and simple types.
         if let Some(params) = &step.params {
             if !params.is_object() {
                 diag(
@@ -806,16 +788,23 @@ pub fn validate_flow(
                     "params must be an object".into(),
                 );
             } else {
-                let keys = param_keys(params);
-                if keys.contains("") {
-                    diag(
-                        &mut issues,
-                        "error",
-                        "INVALID_IR",
-                        "params.unknown-key",
-                        &format!("{base}/params"),
-                        "unknown action parameter".into(),
-                    );
+                let allowed = allowed_param_keys(step.action);
+                if let Some(object) = params.as_object() {
+                    for key in object.keys() {
+                        if !allowed.contains(&key.as_str()) {
+                            diag(
+                                &mut issues,
+                                "error",
+                                "INVALID_IR",
+                                "params.unknown-key",
+                                &format!("{base}/params/{key}"),
+                                format!(
+                                    "parameter {key} is not valid for {}",
+                                    step.action.as_str()
+                                ),
+                            );
+                        }
+                    }
                 }
                 let requirement: &[&str] = match step.action {
                     Action::Launch => &["app_id"],
@@ -832,7 +821,7 @@ pub fn validate_flow(
                     _ => &[],
                 };
                 for required in requirement {
-                    if !keys.contains(*required) {
+                    if params.get(*required).is_none() {
                         diag(
                             &mut issues,
                             "error",
@@ -843,21 +832,96 @@ pub fn validate_flow(
                         );
                     }
                 }
-                if step.action == Action::Scroll {
-                    let attempts = params
-                        .get("max_attempts")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(5);
-                    if !(1..=20).contains(&attempts) {
-                        diag(
-                            &mut issues,
-                            "error",
-                            "INVALID_IR",
-                            "step.scroll-attempts",
-                            &format!("{base}/params/max_attempts"),
-                            "max_attempts must be 1..=20".into(),
-                        );
+                match step.action {
+                    Action::Input => {
+                        if let Some(value) = params.get("value") {
+                            if !value.is_string() {
+                                diag(
+                                    &mut issues,
+                                    "error",
+                                    "INVALID_IR",
+                                    "params.type",
+                                    &format!("{base}/params/value"),
+                                    "input value must be a string".into(),
+                                );
+                            }
+                        }
                     }
+                    Action::ReadText => {
+                        if let Some(value) = params.get("output_variable") {
+                            if !value.is_string() {
+                                diag(
+                                    &mut issues,
+                                    "error",
+                                    "INVALID_IR",
+                                    "params.type",
+                                    &format!("{base}/params/output_variable"),
+                                    "output_variable must be a string".into(),
+                                );
+                            }
+                        }
+                    }
+                    Action::End => {
+                        if !matches!(
+                            params.get("status").and_then(Value::as_str),
+                            Some("success") | Some("failed")
+                        ) {
+                            diag(
+                                &mut issues,
+                                "error",
+                                "INVALID_IR",
+                                "params.type",
+                                &format!("{base}/params/status"),
+                                "end status must be success or failed".into(),
+                            );
+                        }
+                    }
+                    Action::Scroll => {
+                        if !matches!(
+                            params.get("direction").and_then(Value::as_str),
+                            Some("up") | Some("down") | Some("left") | Some("right")
+                        ) {
+                            diag(
+                                &mut issues,
+                                "error",
+                                "INVALID_IR",
+                                "params.type",
+                                &format!("{base}/params/direction"),
+                                "invalid scroll direction".into(),
+                            );
+                        }
+                        let attempts = params
+                            .get("max_attempts")
+                            .and_then(Value::as_u64)
+                            .unwrap_or(5);
+                        if !(1..=20).contains(&attempts) {
+                            diag(
+                                &mut issues,
+                                "error",
+                                "INVALID_IR",
+                                "step.scroll-attempts",
+                                &format!("{base}/params/max_attempts"),
+                                "max_attempts must be 1..=20".into(),
+                            );
+                        }
+                    }
+                    Action::Branch => {
+                        for key in ["goto_step_id", "else_step_id"] {
+                            if let Some(value) = params.get(key) {
+                                if !value.is_string() {
+                                    diag(
+                                        &mut issues,
+                                        "error",
+                                        "INVALID_IR",
+                                        "params.type",
+                                        &format!("{base}/params/{key}"),
+                                        format!("{key} must be a string"),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         } else if !matches!(step.action, Action::Click | Action::Activate) {
@@ -869,6 +933,45 @@ pub fn validate_flow(
                 &format!("{base}/params"),
                 "action requires params".into(),
             );
+        }
+
+        if let Some(risk) = &step.risk {
+            if !matches!(risk.as_str(), "normal" | "sensitive" | "irreversible") {
+                diag(
+                    &mut issues,
+                    "error",
+                    "INVALID_IR",
+                    "step.risk",
+                    &format!("{base}/risk"),
+                    "invalid risk level".into(),
+                );
+            }
+        }
+        if let Some(policy) = &step.evidence_policy {
+            if let Some(capture) = &policy.capture {
+                if !matches!(capture.as_str(), "none" | "target" | "viewport") {
+                    diag(
+                        &mut issues,
+                        "error",
+                        "INVALID_IR",
+                        "evidence.capture",
+                        &format!("{base}/evidence_policy/capture"),
+                        "invalid capture policy".into(),
+                    );
+                }
+            }
+            if let Some(save_on) = &policy.save_on {
+                if !matches!(save_on.as_str(), "failure" | "always" | "never") {
+                    diag(
+                        &mut issues,
+                        "error",
+                        "INVALID_IR",
+                        "evidence.save-on",
+                        &format!("{base}/evidence_policy/save_on"),
+                        "invalid save_on policy".into(),
+                    );
+                }
+            }
         }
 
         // Password / secret heuristics.

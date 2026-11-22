@@ -27,7 +27,7 @@ export interface SnapshotResult {
 }
 
 export interface RecorderEvent {
-  type: 'click' | 'input';
+  type: 'click' | 'input' | 'select';
   candidate: PageCandidate;
   value?: string;
   password: boolean;
@@ -280,7 +280,18 @@ export function installHelpersInPage(): void {
       const id = node.getAttribute('id');
       const testId = node.getAttribute('data-testid');
       if (id || testId || KEEP_TAGS.has(node.tagName)) tokens.unshift(tokenOf(node));
-      node = node.parentElement;
+      if (node.parentElement) {
+        node = node.parentElement;
+        continue;
+      }
+      const rootNode = node.getRootNode();
+      if (rootNode instanceof ShadowRoot) {
+        // Include the host chain so two identical components produce distinct
+        // candidate signatures/selectors.
+        node = rootNode.host;
+        continue;
+      }
+      break;
     }
     return tokens.slice(-8);
   }
@@ -463,15 +474,21 @@ export function installHelpersInPage(): void {
     };
   }
 
-  function clearMarkers(): void {
-    for (const element of Array.from(document.querySelectorAll('[data-ib-candidate]'))) {
+  function clearRoot(root: Document | ShadowRoot | HTMLElement): void {
+    for (const element of Array.from(root.querySelectorAll('[data-ib-candidate]'))) {
       element.removeAttribute('data-ib-candidate');
     }
+    for (const element of Array.from(root.querySelectorAll('*'))) {
+      const shadow = (element as HTMLElement).shadowRoot;
+      if (shadow) clearRoot(shadow);
+    }
+  }
+
+  function clearMarkers(): void {
+    clearRoot(document);
     for (const frame of Array.from(document.querySelectorAll('iframe'))) {
       try {
-        frame.contentDocument
-          ?.querySelectorAll('[data-ib-candidate]')
-          .forEach((element) => element.removeAttribute('data-ib-candidate'));
+        if (frame.contentDocument) clearRoot(frame.contentDocument);
       } catch {
         /* cross-origin */
       }
@@ -534,7 +551,7 @@ export function installRecorderInPage(): void {
     }, 320);
   };
 
-  const record = (type: 'click' | 'input', target: Element | null): void => {
+  const record = (type: 'click' | 'input' | 'select', target: Element | null): void => {
     if (!recorder.active || !target) return;
     if (recorder.events.length >= 200) {
       recorder.warnings.push('recording event limit reached; recording paused');
@@ -553,7 +570,9 @@ export function installRecorderInPage(): void {
       return;
     }
     const value =
-      type === 'input' && !password && (target as HTMLInputElement).value !== undefined
+      (type === 'input' || type === 'select') &&
+      !password &&
+      (target as HTMLInputElement).value !== undefined
         ? String((target as HTMLInputElement).value)
         : undefined;
     const event: RecorderEvent = {
@@ -571,7 +590,22 @@ export function installRecorderInPage(): void {
 
   root.__ibRecorderListeners = {
     click: (event: Event) => record('click', event.target as Element),
-    change: (event: Event) => record('input', event.target as Element),
+    change: (event: Event) => {
+      const target = event.target as Element;
+      if (target instanceof HTMLSelectElement) {
+        record('select', target);
+        return;
+      }
+      if (
+        target instanceof HTMLInputElement &&
+        (target.type === 'checkbox' || target.type === 'radio')
+      ) {
+        // The click event already records the toggle; a duplicate change step
+        // would double-execute it on replay.
+        return;
+      }
+      record('input', target);
+    },
   };
   window.addEventListener('click', root.__ibRecorderListeners.click, true);
   window.addEventListener('change', root.__ibRecorderListeners.change, true);

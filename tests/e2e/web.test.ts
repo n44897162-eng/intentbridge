@@ -159,6 +159,7 @@ describe('web golden replay (real Chrome)', () => {
       await page.getByTestId('keyword-input').fill('季度');
       await page.getByTestId('search-submit').click();
       await page.waitForSelector('[data-testid="results-summary"]');
+      await page.getByTestId('report-type').selectOption('portrait');
     });
     await page.close();
     expect(warnings.some((warning) => warning.includes('password'))).toBe(false);
@@ -170,6 +171,8 @@ describe('web golden replay (real Chrome)', () => {
     expect((inputStep?.params as { value: string }).value).toBe('季度');
     const clickStep = flow.steps.find((step) => step.action === 'click');
     expect(clickStep?.target?.anchors.native_identity?.value).toBe('search-submit');
+    const selectStep = flow.steps.find((step) => step.action === 'select');
+    expect(selectStep?.target?.anchors.native_identity?.value).toBe('report-type');
 
     await resetFixture();
     const result = await runOnPage(flow, { variables: {} });
@@ -200,12 +203,14 @@ describe('web golden replay (real Chrome)', () => {
       variables: { keyword: '报告' },
       hooks: { approve: () => true, recover: () => 'stop' },
     });
-    expect(['PAUSED_FOR_RECOVERY', 'CANCELLED']).toContain(result.state);
-    expect(result.error).toBeNull();
+    expect(['PAUSED_FOR_OUTCOME', 'PAUSED_FOR_RECOVERY', 'CANCELLED']).toContain(result.state);
+    expect(result.error?.code).toBe('APP_SCOPE_VIOLATION');
     const paused = result.events.filter((event) => event.type === 'RunPaused');
     expect(
       paused.some(
-        (event) => (event.payload as { reason?: string }).reason === 'app_scope_violation',
+        (event) =>
+          (event.payload as { reason?: string }).reason === 'outcome_unknown' &&
+          (event.payload as { error?: { code?: string } }).error?.code === 'APP_SCOPE_VIOLATION',
       ),
     ).toBe(true);
     // No search submission happened on the foreign origin.

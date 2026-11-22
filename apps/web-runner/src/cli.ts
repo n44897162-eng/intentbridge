@@ -118,132 +118,142 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<numb
   const evidenceDir = typeof flags.evidence === 'string' ? resolve(flags.evidence) : undefined;
   if (evidenceDir) await mkdir(evidenceDir, { recursive: true });
   const session = await launchBrowser({ headless: flags.headless !== false });
-  const driver = new PlaywrightDriver(session.page, {
-    appScope: flow.app_scope.value,
-    ...(evidenceDir ? { evidenceDir } : {}),
-    ...(typeof flags.url === 'string' ? {} : {}),
-  });
-  await preparePage(session.page);
-  if (typeof flags.url === 'string') {
-    await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
-  }
+  try {
+    const driver = new PlaywrightDriver(session.page, {
+      appScope: flow.app_scope.value,
+      ...(evidenceDir ? { evidenceDir } : {}),
+      ...(typeof flags.url === 'string' ? {} : {}),
+    });
+    await preparePage(session.page);
+    if (typeof flags.url === 'string') {
+      await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
+    }
 
-  const hooks: RunHooks = {
-    ...(flags.approve ? { approve: () => true } : {}),
-    disambiguate: pickHook(flags.pick) as RunHooks['disambiguate'],
-    ...(typeof flags.outcome === 'string'
-      ? { decideOutcome: () => flags.outcome as 'succeeded' | 'failed' | 'retry' }
-      : {}),
-    ...(typeof flags.recovery === 'string' ? { recover: () => flags.recovery as string } : {}),
-    onPause: async (directive) => {
-      if (!evidenceDir) return;
-      const candidateId =
-        (directive as { candidates?: Array<{ candidate: { candidate_id: string } }> })
-          .candidates?.[0]?.candidate.candidate_id ??
-        driver.lastSnapshot?.candidates.find((candidate) => candidate.in_viewport)?.candidate_id;
-      const candidate = driver.lastSnapshot?.candidates.find(
-        (item) => item.candidate_id === candidateId,
-      );
-      if (candidate?.rect) {
-        await driver.captureEvidence({
-          stepId: String((directive as { step_id?: string }).step_id ?? 'pause'),
-          rect: candidate.rect,
-          label: 'paused',
-        });
-      }
-    },
-  };
+    const hooks: RunHooks = {
+      ...(flags.approve ? { approve: () => true } : {}),
+      disambiguate: pickHook(flags.pick) as RunHooks['disambiguate'],
+      ...(typeof flags.outcome === 'string'
+        ? { decideOutcome: () => flags.outcome as 'succeeded' | 'failed' | 'retry' }
+        : {}),
+      ...(typeof flags.recovery === 'string' ? { recover: () => flags.recovery as string } : {}),
+      onPause: async (directive) => {
+        if (!evidenceDir) return;
+        const candidateId =
+          (directive as { candidates?: Array<{ candidate: { candidate_id: string } }> })
+            .candidates?.[0]?.candidate.candidate_id ??
+          driver.lastSnapshot?.candidates.find((candidate) => candidate.in_viewport)?.candidate_id;
+        const candidate = driver.lastSnapshot?.candidates.find(
+          (item) => item.candidate_id === candidateId,
+        );
+        if (candidate?.rect) {
+          await driver.captureEvidence({
+            stepId: String((directive as { step_id?: string }).step_id ?? 'pause'),
+            rect: candidate.rect,
+            label: 'paused',
+            framePath: candidate.frame_path ?? [],
+          });
+        }
+      },
+    };
 
-  const engine = await WasmEngine.fromFile(wasmPath());
-  const result = await runFlow({ engine, driver, flow, variables, hooks });
-  await session.close();
+    const engine = await WasmEngine.fromFile(wasmPath());
+    const result = await runFlow({ engine, driver, flow, variables, hooks });
 
-  const runDirectory = evidenceDir ? dirname(resolve(evidenceDir, 'run.json')) : undefined;
-  const summary = {
-    status: result.status,
-    state: result.state,
-    error: result.error,
-    pending: result.pending ? { kind: (result.pending as { kind?: string }).kind } : null,
-    events: result.events.length,
-    action_log: result.actionLog,
-    metrics: {
-      planner_p95_ms: result.metrics.planner_p95_ms,
-      total_elapsed_ms: result.metrics.total_elapsed_ms,
-    },
-    flow_id: flow.flow_id,
-  };
-  if (runDirectory) {
-    await writeFile(resolve(runDirectory, 'events.json'), JSON.stringify(result.events, null, 2));
+    const runDirectory = evidenceDir ? dirname(resolve(evidenceDir, 'run.json')) : undefined;
+    const summary = {
+      status: result.status,
+      state: result.state,
+      error: result.error,
+      pending: result.pending ? { kind: (result.pending as { kind?: string }).kind } : null,
+      events: result.events.length,
+      action_log: result.actionLog,
+      metrics: {
+        planner_p95_ms: result.metrics.planner_p95_ms,
+        total_elapsed_ms: result.metrics.total_elapsed_ms,
+      },
+      flow_id: flow.flow_id,
+    };
+    if (runDirectory) {
+      await writeFile(resolve(runDirectory, 'events.json'), JSON.stringify(result.events, null, 2));
+    }
+    if (typeof flags.out === 'string') {
+      await writeFile(resolve(flags.out), JSON.stringify({ summary, result }, null, 2));
+    }
+    console.log(JSON.stringify(summary, null, 2));
+    return result.status === 'succeeded' ? 0 : 2;
+  } finally {
+    await session.close();
   }
-  if (typeof flags.out === 'string') {
-    await writeFile(resolve(flags.out), JSON.stringify({ summary, result }, null, 2));
-  }
-  console.log(JSON.stringify(summary, null, 2));
-  return result.status === 'succeeded' ? 0 : 2;
 }
 
 async function commandRecord(flags: Record<string, string | boolean>): Promise<number> {
   if (typeof flags.url !== 'string') throw new Error('--url is required');
   const out = typeof flags.out === 'string' ? resolve(flags.out) : resolve('recorded.flow.json');
   const session = await launchBrowser({ headless: false });
-  await preparePage(session.page);
-  await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
-  await startRecording(session.page);
-  console.log('Recording. Interact with the page, then press Enter to stop.');
-  if (process.stdin.isTTY) {
-    const rl = readline.createInterface({ input: process.stdin });
-    await new Promise<void>((resolvePromise) => rl.question('', () => resolvePromise()));
-    rl.close();
-  } else {
-    const seconds = Number(flags.seconds ?? 20);
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, seconds * 1000));
+  try {
+    await preparePage(session.page);
+    await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
+    await startRecording(session.page);
+    console.log('Recording. Interact with the page, then press Enter to stop.');
+    if (process.stdin.isTTY) {
+      const rl = readline.createInterface({ input: process.stdin });
+      await new Promise<void>((resolvePromise) => rl.question('', () => resolvePromise()));
+      rl.close();
+    } else {
+      const seconds = Number(flags.seconds ?? 20);
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, seconds * 1000));
+    }
+    const recording = await stopRecording(session.page);
+    const { buildFlowFromRecording } = await import('@intentbridge/web-core');
+    const built = buildFlowFromRecording(recording, {
+      name: typeof flags.name === 'string' ? flags.name : undefined,
+    });
+    const validation = validateFlowForExecution(built.flow);
+    await writeFile(out, JSON.stringify(built.flow, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          out,
+          steps: built.flow.steps.length,
+          warnings: built.warnings,
+          valid: validation.ok,
+          errors: validation.errors,
+        },
+        null,
+        2,
+      ),
+    );
+    return validation.ok ? 0 : 2;
+  } finally {
+    await session.close();
   }
-  const recording = await stopRecording(session.page);
-  const { buildFlowFromRecording } = await import('@intentbridge/web-core');
-  const built = buildFlowFromRecording(recording, {
-    name: typeof flags.name === 'string' ? flags.name : undefined,
-  });
-  const validation = validateFlowForExecution(built.flow);
-  await session.close();
-  await writeFile(out, JSON.stringify(built.flow, null, 2));
-  console.log(
-    JSON.stringify(
-      {
-        out,
-        steps: built.flow.steps.length,
-        warnings: built.warnings,
-        valid: validation.ok,
-        errors: validation.errors,
-      },
-      null,
-      2,
-    ),
-  );
-  return validation.ok ? 0 : 2;
 }
 
 async function commandProbe(flags: Record<string, string | boolean>): Promise<number> {
   if (typeof flags.url !== 'string') throw new Error('--url is required');
   const session = await launchBrowser({ headless: flags.headless !== false });
-  const driver = new PlaywrightDriver(session.page, { appScope: flags.url });
-  await driver.prepare();
-  await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
-  const snapshot = await driver.snapshot();
-  await session.close();
-  const summary = snapshot.candidates.slice(0, 30).map((candidate) => ({
-    id: candidate.candidate_id,
-    role: candidate.semantic?.role,
-    name: candidate.semantic?.name,
-    test_id: candidate.semantic?.test_id,
-    path: candidate.structure?.path,
-    visible: candidate.visible,
-    enabled: candidate.enabled,
-  }));
-  const payload = { url: snapshot.url, title: snapshot.title, candidates: summary };
-  if (typeof flags.out === 'string')
-    await writeFile(resolve(flags.out), JSON.stringify(payload, null, 2));
-  console.log(JSON.stringify(payload, null, 2));
-  return 0;
+  try {
+    const driver = new PlaywrightDriver(session.page, { appScope: flags.url });
+    await driver.prepare();
+    await session.page.goto(flags.url, { waitUntil: 'domcontentloaded' });
+    const snapshot = await driver.snapshot();
+    const summary = snapshot.candidates.slice(0, 30).map((candidate) => ({
+      id: candidate.candidate_id,
+      role: candidate.semantic?.role,
+      name: candidate.semantic?.name,
+      test_id: candidate.semantic?.test_id,
+      path: candidate.structure?.path,
+      visible: candidate.visible,
+      enabled: candidate.enabled,
+    }));
+    const payload = { url: snapshot.url, title: snapshot.title, candidates: summary };
+    if (typeof flags.out === 'string')
+      await writeFile(resolve(flags.out), JSON.stringify(payload, null, 2));
+    console.log(JSON.stringify(payload, null, 2));
+    return 0;
+  } finally {
+    await session.close();
+  }
 }
 
 async function main(): Promise<void> {

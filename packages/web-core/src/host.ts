@@ -260,6 +260,7 @@ export async function runFlow(options: {
   }
 
   let iterations = 0;
+  let cancelRequested = false;
   const maxIterations = options.maxIterations ?? 500;
   while (iterations < maxIterations) {
     iterations += 1;
@@ -269,12 +270,19 @@ export async function runFlow(options: {
       return finish('FAILED', 'failed', { code: 'INTERNAL_ERROR', message: 'empty engine output' });
     collect(output);
     pending = output as unknown as Record<string, unknown>;
-    if (hooks.shouldCancel?.()) {
+    if (output.kind === 'Finished') {
+      return finish(output.state, output.status, output.error ?? null);
+    }
+    if (!cancelRequested && hooks.shouldCancel?.()) {
+      cancelRequested = true;
       response = timedSubmit(engine, plannerSamples, {
         kind: 'Cancel',
         now_mono_ms: driver.now(),
         reason: 'user_cancelled',
       });
+      if (!response.ok) {
+        return finish('CANCELLED', 'cancelled', null);
+      }
       continue;
     }
     const now = driver.now();
@@ -295,7 +303,18 @@ export async function runFlow(options: {
           break;
         }
         case 'PerformAction': {
-          const facts = await driver.facts();
+          const facts = await safeFacts(driver);
+          if (!facts) {
+            response = timedSubmit(engine, plannerSamples, {
+              kind: 'ActionDone',
+              now_mono_ms: driver.now(),
+              step_id: output.step_id,
+              attempt_id: output.attempt_id,
+              outcome: 'unknown',
+              error: { code: 'PLATFORM_NAVIGATION', message: 'page facts are unavailable' },
+            });
+            break;
+          }
           if (
             output.action !== 'launch' &&
             flow.app_scope.kind === 'web-origin' &&
@@ -382,7 +401,7 @@ export async function runFlow(options: {
               ...resolvedMeta,
               params_preview: output.params_preview,
             });
-            const after = await driver.facts();
+            const after = await safeFacts(driver);
             response = timedSubmit(engine, plannerSamples, {
               kind: 'ActionDone',
               now_mono_ms: driver.now(),
@@ -390,13 +409,17 @@ export async function runFlow(options: {
               attempt_id: output.attempt_id,
               outcome: 'failed',
               error: mapped,
-              facts: {
-                now_mono_ms: driver.now(),
-                app_scope: after.origin,
-                url: after.url,
-                window_title: after.title,
-                window_stable_ms: after.window_stable_ms,
-              },
+              ...(after
+                ? {
+                    facts: {
+                      now_mono_ms: driver.now(),
+                      app_scope: after.origin,
+                      url: after.url,
+                      window_title: after.title,
+                      window_stable_ms: after.window_stable_ms,
+                    },
+                  }
+                : {}),
             });
             break;
           }
@@ -412,20 +435,29 @@ export async function runFlow(options: {
             ...resolvedMeta,
             params_preview: output.params_preview,
           });
-          const after = await driver.facts();
+          const after = await safeFacts(driver);
           response = timedSubmit(engine, plannerSamples, {
             kind: 'ActionDone',
             now_mono_ms: driver.now(),
             step_id: output.step_id,
             attempt_id: output.attempt_id,
-            outcome: 'succeeded',
-            facts: {
-              now_mono_ms: driver.now(),
-              app_scope: after.origin,
-              url: after.url,
-              window_title: after.title,
-              window_stable_ms: after.window_stable_ms,
-            },
+            outcome: after ? 'succeeded' : 'unknown',
+            ...(after
+              ? {
+                  facts: {
+                    now_mono_ms: driver.now(),
+                    app_scope: after.origin,
+                    url: after.url,
+                    window_title: after.title,
+                    window_stable_ms: after.window_stable_ms,
+                  },
+                }
+              : {
+                  error: {
+                    code: 'PLATFORM_NAVIGATION',
+                    message: 'page changed during the action; outcome is unknown',
+                  },
+                }),
             ...(actionResult.text !== undefined ? { text: actionResult.text } : {}),
           });
           break;
@@ -433,7 +465,7 @@ export async function runFlow(options: {
         case 'AwaitCondition': {
           // Honour the engine's backoff instead of busy-polling the DOM.
           if (typeof output.poll_after_ms === 'number' && output.poll_after_ms > 0) {
-            await driver.sleep(Math.min(output.poll_after_ms, 1_000));
+            await driver.sleep(Math.min(output.poll_after_ms, 4_000));
           }
           const snapshot = await driver.snapshot();
           await driver.enrichVisuals?.(snapshot, null);
@@ -516,10 +548,6 @@ export async function runFlow(options: {
           });
           break;
         }
-        case 'Finished': {
-          const status = output.status;
-          return finish(output.state, status, output.error ?? null);
-        }
         default: {
           return finish((output as { state?: string }).state ?? 'FAILED', 'failed', {
             code: 'INTERNAL_ERROR',
@@ -541,6 +569,19 @@ export async function runFlow(options: {
     code: 'RUNTIME_LIMIT_EXCEEDED',
     message: 'host loop iteration cap reached',
   });
+}
+
+async function safeFacts(
+  driver: BrowserDriver,
+): Promise<Awaited<ReturnType<BrowserDriver['facts']>> | null> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await driver.facts();
+    } catch {
+      await driver.sleep(150);
+    }
+  }
+  return null;
 }
 
 function timedSubmit(engine: WasmEngine, samples: number[], input: Record<string, unknown>) {

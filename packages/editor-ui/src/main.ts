@@ -438,6 +438,7 @@ async function render(): Promise<void> {
   } catch (error) {
     view = errorView(error);
   }
+  if (generation !== renderGeneration) return;
   appRoot.replaceChildren(view);
 }
 
@@ -582,16 +583,20 @@ async function flowView(flowId: string, generation: number): Promise<HTMLElement
     ['runs', '运行记录'],
   ];
 
-  const save = async (): Promise<void> => {
+  const save = async (candidate?: Flow): Promise<boolean> => {
+    const flowToSave = candidate ?? draft;
+    if (!flowToSave) return false;
     try {
-      if (!draft) return;
       const response = await api.put<{ revision: number; hash: string; warnings: Diagnostic[] }>(
         `/flows/${flowId}`,
         {
-          flow: draft,
+          flow: flowToSave,
           created_by: 'shell',
+          base_revision: flowToSave.revision,
         },
       );
+      // Commit the client-side draft only after the server accepted it.
+      draft = flowToSave;
       draft.revision = response.revision;
       draft.updated_at = new Date().toISOString();
       setNotice(
@@ -599,6 +604,7 @@ async function flowView(flowId: string, generation: number): Promise<HTMLElement
         `已保存为 r${response.revision}${response.warnings?.length ? `（${response.warnings.length} 条警告）` : ''}`,
       );
       await render();
+      return true;
     } catch (error) {
       if (error instanceof ApiError && error.detail) {
         const detail = error.detail as { detail?: { errors?: Diagnostic[] } };
@@ -607,6 +613,7 @@ async function flowView(flowId: string, generation: number): Promise<HTMLElement
         setNotice('error', (error as Error).message);
       }
       await render();
+      return false;
     }
   };
 
@@ -726,7 +733,7 @@ async function flowView(flowId: string, generation: number): Promise<HTMLElement
   );
 }
 
-function stepsTab(flow: Flow, redraw: () => void, _save: () => Promise<void>): HTMLElement {
+function stepsTab(flow: Flow, redraw: () => void, _save: () => Promise<unknown>): HTMLElement {
   if (!selectedStepId || !flow.steps.some((step) => step.id === selectedStepId)) {
     selectedStepId = flow.steps[0]?.id ?? null;
   }
@@ -1020,7 +1027,7 @@ function ensureTarget(step: Step): Target {
   return step.target;
 }
 
-function targetTab(flow: Flow, redraw: () => void, _save: () => Promise<void>): HTMLElement {
+function targetTab(flow: Flow, redraw: () => void, _save: () => Promise<unknown>): HTMLElement {
   const step =
     flow.steps.find((item) => item.id === selectedStepId && item.target) ??
     flow.steps.find((item) => item.target);
@@ -1112,7 +1119,7 @@ function targetTab(flow: Flow, redraw: () => void, _save: () => Promise<void>): 
   return container;
 }
 
-function variablesTab(flow: Flow, redraw: () => void, _save: () => Promise<void>): HTMLElement {
+function variablesTab(flow: Flow, redraw: () => void, _save: () => Promise<unknown>): HTMLElement {
   const variables = flow.variables;
   const table = h(
     'table',
@@ -1308,7 +1315,7 @@ function variablesTab(flow: Flow, redraw: () => void, _save: () => Promise<void>
   );
 }
 
-function permissionsTab(flow: Flow, save: () => Promise<void>): HTMLElement {
+function permissionsTab(flow: Flow, save: () => Promise<unknown>): HTMLElement {
   const scope = flow.app_scope;
   return section(
     '权限与应用范围',
@@ -1368,7 +1375,11 @@ function permissionsTab(flow: Flow, save: () => Promise<void>): HTMLElement {
   );
 }
 
-function jsonTab(flow: Flow, redraw: () => void, save: () => Promise<void>): HTMLElement {
+function jsonTab(
+  flow: Flow,
+  redraw: () => void,
+  save: (candidate?: Flow) => Promise<boolean>,
+): HTMLElement {
   const area = textArea(JSON.stringify(flow, null, 2), () => {}, 24);
   return section(
     '专家 JSON 视图',

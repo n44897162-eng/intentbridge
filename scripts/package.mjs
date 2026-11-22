@@ -9,10 +9,12 @@ const out = resolve(root, 'artifacts');
 mkdirSync(resolve(out, 'android'), { recursive: true });
 mkdirSync(resolve(out, 'windows'), { recursive: true });
 const hashes = [];
+let missing = 0;
 
 function copy(source, destination) {
   if (!existsSync(source)) {
     console.log('MISSING', source);
+    missing += 1;
     return;
   }
   copyFileSync(source, destination);
@@ -91,3 +93,7 @@ console.log('packaged', sourceTar.slice(root.length + 1));
 
 writeFileSync(resolve(out, 'SHA256SUMS'), `${hashes.join('\n')}\n`);
 console.log(`wrote ${basename(resolve(out, 'SHA256SUMS'))} (${hashes.length} files)`);
+if (missing > 0) {
+  console.error(`PACKAGE FAILED: ${missing} required artifact(s) missing`);
+  process.exit(1);
+}

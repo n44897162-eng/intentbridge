@@ -1,9 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, type AppInstance } from '@intentbridge/web-shell';
-import type { Flow } from '@intentbridge/action-ir';
+import { hashJson, type Flow } from '@intentbridge/action-ir';
 
 const ROOT = resolve(__dirname, '../..');
 const golden = JSON.parse(
@@ -166,6 +166,15 @@ describe('shell API contract', () => {
     expect((await call('PUT', '/api/settings', { model_adapter_enabled: true })).status).toBe(422);
   });
 
+  it('refuses run variables that do not satisfy the flow declaration', async () => {
+    const response = await call('POST', `/api/flows/${golden.flow_id}/runs`, {
+      variables: { keyword: 123, surprise: 'x' },
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('INVALID_VARIABLES');
+  });
+
   it('refuses evidence paths outside the data directory', async () => {
     app.db.addEvidence({
       id: 'ev-trap',
@@ -181,6 +190,22 @@ describe('shell API contract', () => {
     });
     const response = await call('GET', '/api/evidence/ev-trap');
     expect(response.status).toBe(403);
+
+    const linkPath = join(dataDir, 'evidence', 'link.png');
+    symlinkSync('/etc/passwd', linkPath);
+    app.db.addEvidence({
+      id: 'ev-symlink',
+      run_id: 'run-x',
+      step_id: 'step-1',
+      path: linkPath,
+      sha256: '0'.repeat(64),
+      sensitive: 0,
+      width: null,
+      height: null,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect((await call('GET', '/api/evidence/ev-symlink')).status).toBe(403);
   });
 
   it('records sessions and refuses to finalize an empty recording', async () => {

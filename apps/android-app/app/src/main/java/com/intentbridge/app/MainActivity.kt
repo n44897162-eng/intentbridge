@@ -15,7 +15,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -108,7 +110,10 @@ class MainActivity : AppCompatActivity() {
             status.text = "没有录制到事件"
             return
         }
-        val packageName = service.currentPackage() ?: events.getJSONObject(0).optString("scope")
+        // Use the recorded event's package, not the current foreground app:
+        // the user is in IntentBridge's own UI when pressing Stop.
+        val packageName = events.optJSONObject(0)?.optString("scope")?.takeIf { it.isNotEmpty() }
+            ?: service.currentPackage() ?: return
         val flowJson = RecordingFlowBuilder.build(events, packageName, "Android 录制 ${events.length()} 步")
         val issue = RecordingFlowBuilder.validate(flowJson)
         if (issue != null) {
@@ -150,13 +155,15 @@ class MainActivity : AppCompatActivity() {
         repository.createRun(runId, flowId, "manual")
         status.text = "运行中…"
         lifecycleScope.launch {
-            val result = FlowExecutor(applicationContext).run(
-                flowJson,
-                emptyMap(),
-                runId,
-                repository,
-                DialogDecisionProvider(this@MainActivity),
-            )
+            val result = withContext(Dispatchers.Default) {
+                FlowExecutor(applicationContext).run(
+                    flowJson,
+                    emptyMap(),
+                    runId,
+                    repository,
+                    DialogDecisionProvider(this@MainActivity),
+                )
+            }
             status.text = when (result.status) {
                 "succeeded" -> "运行成功"
                 "paused" -> "运行暂停，等待人工决定"

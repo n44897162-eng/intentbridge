@@ -44,10 +44,19 @@ let activeRun: {
   waiters: Map<string, (value: unknown) => void>;
 } | null = null;
 let currentTabId: number | null = null;
+let lastEventPersist = 0;
+
+let runtimeQueue: Promise<void> = Promise.resolve();
 
 async function saveRuntime(patch: Partial<RuntimeState>): Promise<void> {
   runtime = { ...runtime, ...patch, updated_at: new Date().toISOString() };
-  await chrome.storage.local.set({ [STORAGE_RUNTIME]: runtime });
+  const snapshot = { ...runtime };
+  // Serialise storage writes so a late event update cannot overwrite a newer
+  // pending/status transition (the popup would otherwise lose its buttons).
+  runtimeQueue = runtimeQueue
+    .catch(() => undefined)
+    .then(() => chrome.storage.local.set({ [STORAGE_RUNTIME]: snapshot }));
+  await runtimeQueue;
 }
 
 async function getRuntime(): Promise<RuntimeState> {
@@ -106,14 +115,30 @@ async function tabMessage<T>(tabId: number, message: Record<string, unknown>): P
   return (reply.snapshot ?? reply.facts ?? reply.recording ?? reply.result) as T;
 }
 
-async function waitForTabComplete(tabId: number, timeoutMs = 20_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const tab = await chrome.tabs.get(tabId).catch(() => null);
-    if (tab?.status === 'complete') return;
-    await new Promise((resolve) => setTimeout(resolve, 120));
-  }
-  throw new Error('tab did not finish loading');
+function waitForNavigation(tabId: number, expectedUrl: string, timeoutMs = 20_000): Promise<void> {
+  const normalize = (value: string): string => value.replace(/#.*$/, '').replace(/\/$/, '');
+  const expected = normalize(expectedUrl);
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('tab did not finish loading the requested url'));
+    }, timeoutMs);
+    const listener = (
+      updatedTabId: number,
+      change: chrome.tabs.TabChangeInfo,
+      tab: chrome.tabs.Tab,
+    ): void => {
+      if (updatedTabId !== tabId || change.status !== 'complete') return;
+      if (normalize(tab.url ?? '') !== expected) return;
+      cleanup();
+      resolve();
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
 
 class ExtensionDriver implements BrowserDriver {
@@ -148,8 +173,9 @@ class ExtensionDriver implements BrowserDriver {
     if (request.action === 'launch') {
       const url = String(request.params['url'] ?? '');
       if (!url) return { error: { code: 'INVALID_IR', message: 'launch url missing' } };
+      const loaded = waitForNavigation(this.tabId, url);
       await chrome.tabs.update(this.tabId, { url });
-      await waitForTabComplete(this.tabId);
+      await loaded;
       await ensureInjected(this.tabId);
       return {};
     }
@@ -278,7 +304,12 @@ async function startRun(
           },
           shouldCancel: () => activeRun?.cancelled === true,
           onEvent: () => {
-            void saveRuntime({ events: (runtime.events ?? 0) + 1, pending: null });
+            runtime.events = (runtime.events ?? 0) + 1;
+            const now = Date.now();
+            if (now - lastEventPersist > 400) {
+              lastEventPersist = now;
+              void saveRuntime({ events: runtime.events });
+            }
           },
           onPause: async (directive) => {
             await saveRuntime({

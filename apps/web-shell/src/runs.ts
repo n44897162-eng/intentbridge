@@ -294,7 +294,11 @@ export class RunManager {
         },
         onPause: async (directive) => {
           this.db.updateRun(runId, { status: 'paused', pending: directive });
-          await this.capturePauseEvidence(active, driver, directive);
+          try {
+            await this.capturePauseEvidence(active, driver, directive);
+          } catch {
+            // Evidence capture must never fail the run.
+          }
         },
         onAction: (entry: ActionLogEntry) => {
           // Action log is stored at the end; this hook is kept for future streaming.
@@ -323,7 +327,11 @@ export class RunManager {
         if (Array.isArray(events)) this.db.appendEvents(runId, events);
         finalResult = { ...result, status: 'cancelled', state: 'CANCELLED', error: null };
       }
-      await this.captureFailureEvidence(active, driver, finalResult);
+      try {
+        await this.captureFailureEvidence(active, driver, finalResult);
+      } catch {
+        // Evidence capture must never fail the run.
+      }
       this.db.updateRun(runId, {
         status: finalResult.status === 'paused' ? 'paused' : finalResult.status,
         state: finalResult.state,
@@ -348,7 +356,13 @@ export class RunManager {
       }
       engine?.dispose();
       this.active.delete(runId);
-      this.cleanupEvidence();
+      try {
+        this.cleanupEvidence();
+      } catch (error) {
+        // The host may already be shutting down; cleanup must not become an
+        // unhandled rejection after the database is closed.
+        if (!String((error as Error).message).includes('finalized')) console.warn(String(error));
+      }
     }
   }
 
@@ -361,21 +375,38 @@ export class RunManager {
     height: number,
   ): void {
     const settings = this.settings();
-    if (this.db.evidenceBytes() > settings.storage_limit_mb * 1024 * 1024) return;
+    if (this.db.evidenceBytes() > settings.storage_limit_mb * 1024 * 1024) {
+      // The driver has already written the PNG; do not leave it untracked.
+      try {
+        unlinkSync(path);
+      } catch {
+        /* best effort */
+      }
+      return;
+    }
     const retention = Math.max(0, settings.evidence_retention_days);
     const expires = new Date(Date.now() + retention * 24 * 60 * 60 * 1000).toISOString();
-    this.db.addEvidence({
-      id: `ev-${randomUUID()}`,
-      run_id: runId,
-      step_id: stepId,
-      path,
-      sha256,
-      sensitive: 0,
-      width,
-      height,
-      created_at: new Date().toISOString(),
-      expires_at: expires,
-    });
+    try {
+      this.db.addEvidence({
+        id: `ev-${randomUUID()}`,
+        run_id: runId,
+        step_id: stepId,
+        path,
+        sha256,
+        sensitive: 0,
+        width,
+        height,
+        created_at: new Date().toISOString(),
+        expires_at: expires,
+      });
+    } catch (error) {
+      try {
+        unlinkSync(path);
+      } catch {
+        /* best effort */
+      }
+      throw error;
+    }
   }
 
   private stepOf(flow: Flow, stepId: string): Step | undefined {
@@ -397,6 +428,7 @@ export class RunManager {
         stepId,
         rect: candidate.rect,
         label: 'decision',
+        framePath: candidate.frame_path ?? [],
         maskSelectors: step?.evidence_policy?.mask_selectors ?? [],
       });
     } catch {
@@ -424,6 +456,7 @@ export class RunManager {
       stepId,
       rect: candidate.rect,
       label: 'paused',
+      framePath: candidate.frame_path ?? [],
       maskSelectors: step?.evidence_policy?.mask_selectors ?? [],
     });
   }
@@ -446,6 +479,7 @@ export class RunManager {
       stepId: lastAction?.step_id ?? 'run',
       rect: candidate.rect,
       label: 'failure',
+      framePath: candidate.frame_path ?? [],
       maskSelectors: step?.evidence_policy?.mask_selectors ?? [],
     });
   }

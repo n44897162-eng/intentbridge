@@ -113,6 +113,7 @@ struct Host {
     scope_override: Option<String>,
     performed: Vec<String>,
     started: bool,
+    variables: std::collections::BTreeMap<String, Value>,
 }
 
 impl Host {
@@ -135,6 +136,9 @@ impl Host {
             scope_override: None,
             performed: Vec::new(),
             started: false,
+            variables: [("keyword".to_string(), json!("报告"))]
+                .into_iter()
+                .collect(),
         }
     }
 
@@ -209,9 +213,7 @@ fn drive(mut engine: Engine, mut host: Host) -> DriveResult {
             run_id: "run-test-0001".into(),
             now_mono_ms: host.now,
             wall_time_ms: 1_700_000_000_000,
-            variables: [("keyword".to_string(), json!("报告"))]
-                .into_iter()
-                .collect(),
+            variables: host.variables.clone(),
             start_step_id: None,
             single_step: false,
         })
@@ -662,6 +664,25 @@ fn postcondition_timeout_after_write_pauses_as_outcome_unknown() {
 }
 
 #[test]
+fn approval_applies_to_targetless_launch() {
+    let mut flow = golden();
+    flow["steps"][0]["risk"] = json!("sensitive");
+    let result = drive(configured_engine(flow), Host::new());
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    let approvals = event_payloads(&result.engine, "ApprovalRequested");
+    assert!(approvals.iter().any(|payload| payload["approved"] == true));
+    assert_eq!(
+        result
+            .host
+            .performed
+            .iter()
+            .filter(|action| *action == "open:launch")
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn approval_denied_blocks_sensitive_action() {
     let mut flow = golden();
     flow["steps"][2]["risk"] = json!("sensitive");
@@ -694,7 +715,7 @@ fn approval_granted_executes_sensitive_action() {
 }
 
 #[test]
-fn app_scope_violation_pauses_before_action() {
+fn app_scope_violation_after_action_is_outcome_unknown() {
     let mut host = Host::new();
     host.scope_override = Some("http://127.0.0.1:4318".into());
     let mut engine = golden_engine();
@@ -747,18 +768,21 @@ fn app_scope_violation_pauses_before_action() {
                     })
                     .expect("observation");
             }
+            Directive::AwaitOutcomeDecision { error, .. } => {
+                assert_eq!(error.code, "APP_SCOPE_VIOLATION");
+                assert_eq!(engine.state().as_str(), "PAUSED_FOR_OUTCOME");
+                assert!(event_payloads(&engine, "RunFinished").is_empty());
+                assert!(!host
+                    .performed
+                    .iter()
+                    .any(|action| action.starts_with("type-keyword")));
+                return;
+            }
             other => panic!("unexpected directive {other:?}"),
         }
         host.now += 10.0;
-        if engine.state().as_str() == "PAUSED_FOR_RECOVERY" {
-            break;
-        }
     }
-    assert_eq!(engine.state().as_str(), "PAUSED_FOR_RECOVERY");
-    assert!(!host
-        .performed
-        .iter()
-        .any(|action| action.starts_with("type-keyword")));
+    panic!("scope violation should pause the outcome");
 }
 
 #[test]
@@ -797,9 +821,67 @@ fn cancel_is_recorded_and_terminal() {
 }
 
 #[test]
-fn pause_and_resume_reexecutes_nothing() {
-    let mut engine = golden_engine();
+fn pause_and_resume_at_a_condition_does_not_replay_an_action() {
+    let mut flow = golden();
+    flow["steps"] = json!([
+        {
+            "id": "wait",
+            "action": "wait",
+            "risk": "normal",
+            "params": { "condition": { "kind": "window-stable", "min_stable_ms": 100 } }
+        },
+        { "id": "done", "action": "end", "params": { "status": "success" } }
+    ]);
+    let host = Host::new();
+    let mut engine = configured_engine(flow);
     let mut output = engine
+        .start(StartOptions {
+            run_id: "run-pause-2".into(),
+            now_mono_ms: 1_000.0,
+            wall_time_ms: 1_700_000_000_000,
+            variables: [("keyword".to_string(), json!("报告"))]
+                .into_iter()
+                .collect(),
+            start_step_id: None,
+            single_step: false,
+        })
+        .expect("start");
+    let condition_id = match &output.directive {
+        Directive::AwaitCondition { condition_id, .. } => condition_id.clone(),
+        other => panic!("expected wait condition, got {other:?}"),
+    };
+    output = engine
+        .submit(EngineInput::Pause {
+            now_mono_ms: 1_010.0,
+        })
+        .expect("pause");
+    assert!(matches!(output.directive, Directive::AwaitRecovery { .. }));
+    output = engine
+        .submit(EngineInput::RecoveryDecision {
+            now_mono_ms: 1_020.0,
+            decision: "resume".into(),
+            note: None,
+        })
+        .expect("resume");
+    assert!(matches!(output.directive, Directive::AwaitCondition { .. }));
+    output = engine
+        .submit(EngineInput::Observation {
+            now_mono_ms: 1_030.0,
+            step_id: "wait".into(),
+            attempt_id: None,
+            condition_id,
+            facts: host.facts(),
+        })
+        .expect("observation");
+    assert!(matches!(output.directive, Directive::Finished { .. }));
+    assert_eq!(engine.state().as_str(), "SUCCEEDED");
+    assert!(event_payloads(&engine, "ActionAttempted").is_empty());
+}
+
+#[test]
+fn pause_during_action_is_refused_to_avoid_double_execution() {
+    let mut engine = golden_engine();
+    let output = engine
         .start(StartOptions {
             run_id: "run-pause-1".into(),
             now_mono_ms: 1_000.0,
@@ -812,36 +894,26 @@ fn pause_and_resume_reexecutes_nothing() {
         })
         .expect("start");
     assert!(matches!(output.directive, Directive::PerformAction { .. }));
-    let paused_before = engine.events().len();
-    output = engine
+    let error = engine
         .submit(EngineInput::Pause {
             now_mono_ms: 1_010.0,
         })
-        .expect("pause");
-    match &output.directive {
-        Directive::AwaitRecovery { reason, .. } => assert_eq!(reason, "user_pause"),
-        other => panic!("expected recovery pause, got {other:?}"),
-    }
-    assert_eq!(engine.state().as_str(), "PAUSED_FOR_RECOVERY");
-    output = engine
-        .submit(EngineInput::RecoveryDecision {
-            now_mono_ms: 1_020.0,
-            decision: "resume".into(),
-            note: None,
-        })
-        .expect("resume");
-    assert!(matches!(output.directive, Directive::PerformAction { .. }));
+        .expect_err("pause must be refused while an action is in flight");
+    assert_eq!(error.code, "INVALID_STATE");
     assert_eq!(engine.state().as_str(), "RUNNING");
-    // Only state/pause events were added while paused.
-    assert!(engine.events().len() > paused_before);
+    assert!(engine
+        .events()
+        .iter()
+        .all(|event| event.event_type != "RunPaused"));
 }
 
 #[test]
-fn recovery_retry_runs_step_again() {
+fn recovery_skip_continues_without_repeating_unsafe_write() {
     let mut flow = golden();
     flow["steps"][2]["on_failure"] = json!("ask-user");
     let mut host = Host::new();
     host.failures.insert("submit".into(), 1);
+    host.recovery = "skip";
     let result = drive(configured_engine(flow), host);
     assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
     assert_eq!(
@@ -851,7 +923,7 @@ fn recovery_retry_runs_step_again() {
             .iter()
             .filter(|action| action.starts_with("submit:"))
             .count(),
-        2
+        1
     );
 }
 
@@ -1121,6 +1193,63 @@ fn stale_candidates_are_re_resolved_without_execution() {
 }
 
 #[test]
+fn targetless_idempotent_action_retries_without_resolution() {
+    let mut flow = golden();
+    flow["steps"][0]["retry"] = json!({ "max_attempts": 2, "idempotency_key": "open-fixture" });
+    let mut host = Host::new();
+    host.failures.insert("open".into(), 1);
+    let result = drive(configured_engine(flow), host);
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    assert_eq!(
+        result
+            .host
+            .performed
+            .iter()
+            .filter(|action| action.as_str() == "open:launch")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn max_runtime_interrupts_waits_and_writes() {
+    let mut engine = Engine::with_config(EngineConfig {
+        max_runtime_ms: 1_000.0,
+        ..EngineConfig::default()
+    });
+    engine
+        .load_value(serde_json::from_value::<Flow>(golden()).expect("decode"))
+        .expect("load");
+    engine.validate().expect("validate");
+    engine.arm().expect("arm");
+    let output = engine
+        .start(StartOptions {
+            run_id: "run-timeout-1".into(),
+            now_mono_ms: 0.0,
+            wall_time_ms: 1_700_000_000_000,
+            variables: [("keyword".to_string(), json!("报告"))]
+                .into_iter()
+                .collect(),
+            start_step_id: None,
+            single_step: false,
+        })
+        .expect("start");
+    assert!(matches!(output.directive, Directive::PerformAction { .. }));
+    let out = engine
+        .submit(EngineInput::Tick {
+            now_mono_ms: 5_000.0,
+        })
+        .expect("tick");
+    assert_eq!(engine.state().as_str(), "PAUSED_FOR_OUTCOME");
+    match out.directive {
+        Directive::AwaitOutcomeDecision { error, .. } => {
+            assert_eq!(error.code, "TIMEOUT");
+        }
+        other => panic!("expected outcome decision, got {other:?}"),
+    }
+}
+
+#[test]
 fn runtime_limits_are_enforced() {
     let mut engine = Engine::with_config(EngineConfig {
         max_steps_per_run: 1,
@@ -1218,6 +1347,42 @@ fn single_step_trial_pauses_after_one_step() {
         .iter()
         .any(|event| event.event_type == "Diagnostic"
             && event.payload["reason"] == "trial_run_options"));
+}
+
+#[test]
+fn sensitive_variable_values_are_masked_in_previews() {
+    let mut flow = golden();
+    flow["variables"].as_array_mut().unwrap().push(json!({
+        "name": "password",
+        "type": "string",
+        "required": true,
+        "sensitive": true
+    }));
+    flow["steps"][1]["params"]["value"] = json!("${password}");
+    flow["steps"][1]["target"]["anchors"]["semantic"] = json!({
+        "role": "textbox",
+        "name": "Password",
+        "test_id": "keyword-input"
+    });
+    for step in flow["steps"].as_array_mut().unwrap() {
+        step["evidence_policy"] = json!({ "capture": "none" });
+    }
+    let mut host = Host::new();
+    host.variables
+        .insert("password".to_string(), json!("s3cr3t-value"));
+    let result = drive(configured_engine(flow), host);
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    let attempts = event_payloads(&result.engine, "ActionAttempted");
+    let input = attempts
+        .iter()
+        .find(|payload| payload["action"] == "input")
+        .expect("input attempt");
+    let preview = input["params_preview"].to_string();
+    assert!(
+        !preview.contains("s3cr3t-value"),
+        "preview leaked: {preview}"
+    );
+    assert!(preview.contains("redacted"));
 }
 
 #[test]

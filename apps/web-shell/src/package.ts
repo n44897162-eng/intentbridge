@@ -64,6 +64,11 @@ export function decryptFlowPackage(pkg: EncryptedPackage, passphrase: string): u
   if (!isEncryptedPackage(pkg)) throw new Error('INVALID_PACKAGE');
   if (pkg.cipher !== 'aes-256-gcm' || pkg.kdf?.name !== 'scrypt')
     throw new Error('UNSUPPORTED_PACKAGE');
+  // Never accept attacker-controlled KDF work factors: a huge N would let a
+  // malicious package exhaust memory/CPU before authentication.
+  if (pkg.kdf.n !== N || pkg.kdf.r !== R || pkg.kdf.p !== P) {
+    throw new Error('UNSUPPORTED_PACKAGE');
+  }
   const salt = Buffer.from(pkg.kdf.salt, 'base64');
   const key = deriveKey(passphrase, salt, pkg.kdf.n, pkg.kdf.r, pkg.kdf.p);
   try {

@@ -5,9 +5,9 @@
  * migrations always back up the database before changing it.
  */
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import type { Flow } from '@intentbridge/action-ir';
+import { hashJson, type Flow } from '@intentbridge/action-ir';
 
 export const DB_SCHEMA_VERSION = 1;
 
@@ -230,16 +230,13 @@ export class AppDatabase {
   }
 
   backup(reason: string): string {
-    try {
-      this.raw.exec('PRAGMA wal_checkpoint(TRUNCATE);');
-    } catch {
-      /* ignore */
-    }
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const safe = reason.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 50);
     const target = join(this.dataDir, 'backups', `${stamp}-${safe}.sqlite`);
     mkdirSync(dirname(target), { recursive: true });
-    copyFileSync(this.dbPath, target);
+    // VACUUM INTO produces a transactionally consistent snapshot including WAL
+    // content. A raw file copy can silently miss committed WAL frames.
+    this.raw.exec(`VACUUM INTO '${target.replace(/'/g, "''")}';`);
     return target;
   }
 
@@ -247,11 +244,18 @@ export class AppDatabase {
   restoreFrom(backupPath: string): void {
     const resolved = resolve(backupPath);
     const backups = join(this.dataDir, 'backups');
-    if (!resolved.startsWith(backups) || !existsSync(resolved)) {
+    if (!resolved.startsWith(backups + '/') || !existsSync(resolved)) {
       throw new Error('backup path is outside the backups directory');
     }
     this.close();
     copyFileSync(resolved, this.dbPath);
+    for (const suffix of ['-wal', '-shm']) {
+      try {
+        unlinkSync(`${this.dbPath}${suffix}`);
+      } catch {
+        /* absent */
+      }
+    }
   }
 
   // ---------------------------------------------------------------- flows
@@ -336,17 +340,27 @@ export class AppDatabase {
     }
   }
 
-  saveFlow(flow: Flow, hash: string, createdBy: string): number {
-    const meta = this.stmt('SELECT current_revision, archived FROM flows WHERE id = ?').get(
-      flow.flow_id,
-    ) as { current_revision?: number; archived?: number } | undefined;
-    if (!meta?.current_revision) throw new Error('FLOW_NOT_FOUND');
-    if (Number(meta.archived) === 1) throw new Error('FLOW_ARCHIVED');
-    const next = Number(meta.current_revision) + 1;
-    const stored: Flow = { ...flow, revision: next, updated_at: nowIso() };
-    const timestamp = nowIso();
+  saveFlow(
+    flow: Flow,
+    createdBy: string,
+    baseRevision?: number,
+  ): { revision: number; hash: string } {
     this.raw.exec('BEGIN IMMEDIATE;');
     try {
+      const meta = this.stmt('SELECT current_revision, archived FROM flows WHERE id = ?').get(
+        flow.flow_id,
+      ) as { current_revision?: number; archived?: number } | undefined;
+      if (!meta?.current_revision) throw new Error('FLOW_NOT_FOUND');
+      if (Number(meta.archived) === 1) throw new Error('FLOW_ARCHIVED');
+      const current = Number(meta.current_revision);
+      if (baseRevision !== undefined && baseRevision !== current) {
+        throw new Error('REVISION_CONFLICT');
+      }
+      const next = current + 1;
+      const timestamp = nowIso();
+      // The hash must commit to the exact immutable bytes stored in the revision.
+      const stored: Flow = { ...flow, revision: next, updated_at: timestamp };
+      const hash = hashJson(stored);
       this.stmt(
         'INSERT INTO flow_revisions(flow_id, revision, schema_version, hash, json, created_at, created_by, signature_json) VALUES(?,?,?,?,?,?,?,NULL)',
       ).run(
@@ -362,7 +376,7 @@ export class AppDatabase {
         'UPDATE flows SET current_revision = ?, name = ?, app_scope = ?, updated_at = ? WHERE id = ?',
       ).run(next, stored.name, stored.app_scope.value, timestamp, flow.flow_id);
       this.raw.exec('COMMIT;');
-      return next;
+      return { revision: next, hash };
     } catch (error) {
       this.raw.exec('ROLLBACK;');
       throw error;

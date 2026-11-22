@@ -276,19 +276,26 @@ export class PlaywrightDriver implements BrowserDriver {
     rect: { x: number; y: number; w: number; h: number };
     maskSelectors?: string[];
     label?: string;
+    framePath?: string[];
   }): Promise<{ path: string; sha256: string; width: number; height: number } | null> {
     if (!this.options.evidenceDir) return null;
+    if (options.framePath && options.framePath.length > 0) {
+      // Frame-relative rects cannot be mapped to a page clip reliably.
+      return null;
+    }
     const viewport = await this.page.evaluate(() => ({
       w: window.innerWidth,
       h: window.innerHeight,
+      x: window.scrollX,
+      y: window.scrollY,
     }));
     const padding = 32;
-    const x = Math.max(0, Math.floor(options.rect.x - padding));
-    const y = Math.max(0, Math.floor(options.rect.y - padding));
-    const width = Math.min(viewport.w - x, Math.ceil(options.rect.w + padding * 2));
-    const height = Math.min(viewport.h - y, Math.ceil(options.rect.h + padding * 2));
+    const x = Math.max(0, Math.floor(options.rect.x + viewport.x - padding));
+    const y = Math.max(0, Math.floor(options.rect.y + viewport.y - padding));
+    const width = Math.min(viewport.w, Math.ceil(options.rect.w + padding * 2));
+    const height = Math.min(viewport.h, Math.ceil(options.rect.h + padding * 2));
     if (width < 2 || height < 2) return null;
-    const masks = (options.maskSelectors ?? [])
+    const masks = [...(options.maskSelectors ?? []), 'input[type="password"]']
       .map((selector) => this.page.locator(selector))
       .slice(0, 8);
     const buffer = await this.page.screenshot({

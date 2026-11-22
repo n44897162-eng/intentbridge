@@ -26,6 +26,7 @@ export type EngineState =
   | 'PAUSED_FOR_APPROVAL'
   | 'PAUSED_FOR_DISAMBIGUATION'
   | 'PAUSED_FOR_OUTCOME'
+  | 'PAUSED_FOR_RECOVERY'
   | 'SUCCEEDED'
   | 'FAILED'
   | 'CANCELLED'
@@ -317,6 +318,16 @@ export interface OutcomeDecisionInput extends InputBase {
   decision: 'succeeded' | 'failed' | 'retry';
 }
 
+export interface PauseInput extends InputBase {
+  kind: 'Pause';
+}
+
+export interface RecoveryDecisionInput extends InputBase {
+  kind: 'RecoveryDecision';
+  decision: 'resume' | 'retry' | 'skip' | 'stop' | 'compensate';
+  note?: string;
+}
+
 export interface CancelInput extends InputBase {
   kind: 'Cancel';
   reason?: string;
@@ -333,6 +344,8 @@ export type EngineInput =
   | ApprovalInput
   | DisambiguationInput
   | OutcomeDecisionInput
+  | PauseInput
+  | RecoveryDecisionInput
   | CancelInput
   | TickInput;
 
@@ -355,6 +368,8 @@ const INPUT_KINDS = [
   'Approval',
   'Disambiguation',
   'OutcomeDecision',
+  'Pause',
+  'RecoveryDecision',
   'Cancel',
   'Tick',
 ] as const;
@@ -385,10 +400,13 @@ export function validateEngineInput(value: unknown): string[] {
   }
   if (!Number.isFinite(input.now_mono_ms)) errors.push('now_mono_ms must be a finite number');
   const kind = input.kind as string;
-  if (kind !== 'Cancel' && kind !== 'Tick') {
+  if (!['Cancel', 'Tick', 'Pause', 'RecoveryDecision'].includes(kind)) {
     if (typeof input.step_id !== 'string' || input.step_id.length === 0) {
       errors.push('step_id required');
     }
+  }
+  if (kind === 'RecoveryDecision' && typeof input.decision !== 'string') {
+    errors.push('decision required');
   }
   if (
     ['Candidates', 'ActionDone', 'Approval', 'Disambiguation', 'OutcomeDecision'].includes(kind)

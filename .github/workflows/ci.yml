@@ -30,10 +30,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
-      - name: Install Playwright Chromium (extension tests need an unbranded build)
-        run: pnpm exec playwright install --with-deps chromium
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium (extension tests need an unbranded build)
+        run: pnpm exec playwright install --with-deps chromium
       - name: Quality gate
         run: xvfb-run -a node scripts/gate.mjs
       - name: Upload reports
@@ -81,8 +81,6 @@ jobs:
           curl -sSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt/gradle
       - name: Build native library and APKs
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
         run: |
           export GRADLE_COMMAND=/opt/gradle/gradle-8.9/bin/gradle
           node scripts/build-platforms.mjs

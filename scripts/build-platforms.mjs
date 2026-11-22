@@ -5,7 +5,7 @@
  * but failing toolchain fails closed.
  */
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -83,7 +83,13 @@ function buildAndroid() {
     encoding: 'utf8',
   });
   const installed = rustupTargets.stdout ?? '';
-  if (installed.includes('aarch64-linux-android') && existsSync(ndk)) {
+  const jniReady = installed.includes('aarch64-linux-android') && existsSync(ndk);
+  if (jniReady) {
+    // Never package stale native libraries from an earlier build.
+    rmSync(resolve(root, 'apps/android-app/app/src/main/jniLibs'), {
+      recursive: true,
+      force: true,
+    });
     const cargoEnv = {
       ...androidEnv,
       PATH: `${ndk}:${resolve(home, '.cargo/bin')}:${androidEnv.PATH ?? ''}`,
@@ -129,6 +135,10 @@ function buildAndroid() {
     { env: androidEnv },
   );
   if (app.status !== 0 || fixture.status !== 0) process.exit(app.status || fixture.status || 1);
+  if (!jniReady) {
+    console.error('ANDROID BUILD: FAILED (JNI unavailable; APK would fail System.loadLibrary)');
+    process.exit(1);
+  }
   console.log('ANDROID BUILD: PASS (APK compile/package; device runtime NOT_RUN)');
 }
 

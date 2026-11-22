@@ -20,6 +20,9 @@
 | BUG-015 | 严重（对 M1 门禁） | **已解决（Web）**                | Web 黄金流程语料不足 20 条                                                                               | 已补齐 21 条并通过真实 Chrome 回放：`tests/replay/web-golden.test.ts`、`artifacts/web-golden-report.json`                     | Windows/Android 各自的 20 条仍在 BUG-001/002 下，随平台实机验证完成             |
 | BUG-016 | 中                 | **已解决**                       | `scroll` 的边界条件只在静态校验中强制，运行时只执行一次滚动                                              | 引擎现在循环滚动直到边界或 `max_attempts`；测试 `scroll_retries_until_boundary_or_max_attempts`                               | 无                                                                              |
 | BUG-014 | 低                 | **部分解决**                     | 无签名安装包/商店发布；M6 未完成                                                                         | 已产出扩展 zip、debug APK、Windows 托管程序集、源码 tar 与 SHA256SUMS；见 `artifacts/` 与 `docs/runbooks/INSTALL-PACKAGES.md` | 签名安装包、升级/回滚、干净机测试                                               |
+| BUG-017 | 中                 | 未解决                           | 录制期间发生整页导航/表单刷新时，新 document 没有 recorder，之前事件丢失；stop 会报 no active recorder   | `packages/web-core/src/dom-snapshot.ts`、`apps/web-runner/src/recorder.ts`                                                    | 录制事件增量写入 sessionStorage/后台，跨 document 恢复合并                      |
+| BUG-018 | 中                 | 未解决                           | MV3 service worker 空闲 30s 可能被回收；等待人工决策的 promise 无超时，run 可能永久停在 running          | `apps/web-extension/src/background.ts`                                                                                        | 用 chrome.alarms 重建/收尾 + decision 超时失败                                  |
+| BUG-019 | 中                 | 未解决                           | Android 录制按 native id 过滤目标，无 id 的按钮/文本控件不会被记录                                       | `apps/web-extension` 无关；`apps/android-app/.../IntentBridgeAccessibilityService.kt`                                         | 用 bounds/class/text 匹配同位置候选，或记录无 id 候选并生成结构锚点             |
 
 ## 已修复但值得保留记录
 
@@ -29,6 +32,18 @@
 - FIX-004：`AwaitCondition` 轮询时未按 `poll_after` 等待，导致同一时间点空转。修复：使用引擎返回的退避时间/`AwaitTimer`，不引入固定 sleep。
 - FIX-005：WASM 每运行重新编译导致长跑内存上涨。修复：编译一次 `WebAssembly.Module`，每次实例化；Web soak 的 heap_used 保持平稳。
 - FIX-006：宿主对 `AwaitCondition` 立即重拍快照，不尊重 `poll_after_ms`，失败条件会空转到 500 次上限。修复：按引擎退避等待后再观察。
+- FIX-012：宿主在 Cancel 后又提交一次 Cancel，导致 run 被记成 INTERNAL_ERROR。解决：Finished 优先判断 + Cancel 只提交一次，已加单测。
+- FIX-013：敏感变量插值后的明文进入 params_preview；参数超 200 字节按字节截断可 panic。解决：按敏感变量值脱敏、按字符截断，并修 sensitive_key 分词。
+- FIX-014：无 target 的 launch/scroll 绕过审批；动作 pending 时可暂停导致重放；OUTCOME_UNKNOWN 重试复用 attempt_id；postcondition 失败提前清 side_effect。解决：审批移入 perform_action、拒绝动作中暂停、重试分配新 attempt、成功确认后才清副作用。
+- FIX-015：TS 协议缺 Pause/RecoveryDecision/PAUSED_FOR_RECOVERY。解决：补齐输入/状态/校验与测试。
+- FIX-016：流程保存无乐观并发；导入 revision 与存储槽位不一致；版本 hash 与落库 JSON 不一致。解决：base_revision + 409、导入归一化 r1、hash 在事务内对 stored JSON 计算。
+- FIX-017：备份忽略 WAL 且 checkpoint 失败静默。解决：VACUUM INTO 一致快照。
+- FIX-018：扩展 launch 可能等待旧页面 complete；storage 写入乱序覆盖 pending。解决：监听 onUpdated 匹配目标 URL；串行化 storage 写。
+- FIX-019：证据裁剪忽略滚动、未 mask 密码、iframe 坐标错。解决：滚动偏移 + 默认密码 mask；iframe 证据跳过而非截错。
+- FIX-020：录制 select/checkbox 生成 input，回放必失败。解决：select 生成 select 动作、checkbox 只保留 click；select 用 window-stable 后置条件。
+- FIX-021：Windows launch 可绕过 app_scope 执行任意程序；secret:// 被当字面量输入。解决：launch 必须等于 scope；secret 未配置时 SECRET_NOT_FOUND。
+- FIX-022：Android 主线程跑 JNI/快照；停止录制把 IntentBridge 自身记为目标；异常不写终态。解决：Dispatchers.Default、录制事件 scope、catch 写 failed。
+- FIX-023：CI 在依赖安装前调用 Playwright；JNI 缺失仍报 Android PASS。解决：调整安装顺序；JNI 缺失 fail-closed 并清理旧 jniLibs。
 - FIX-011：scroll 运行时忽略边界条件与最大次数。解决：动作完成后请求边界观察，未达边界则重试滚动，超过 `max_attempts` 失败。
 - FIX-008：扩展完整录制→回放无法在自动化中触发 activeTab。解决：测试构建只授予夹具 origin，生产 manifest 不变；由此验证 background/content/WASM 全链路。
 - FIX-009：Windows 执行器缺少 WindowsDesktop 引用导致 UIA 类型不可用。解决：`UseWPF` 引入 UIAutomation 引用包；Linux 交叉编译通过。

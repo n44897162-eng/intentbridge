@@ -201,7 +201,6 @@ async function stopRecording(): Promise<void> {
     type: 'ib:stop-recording',
   });
   if (!response?.ok) throw new Error(response?.error ?? 'stop failed');
-  await refreshStatus();
   await renderFlows();
   if (response.flow) {
     expandedFlow = response.flow.flow_id;
@@ -339,6 +338,9 @@ async function boot(): Promise<void> {
   const tab = tabs[0];
   activeTabId = tab?.id ?? null;
   activeTabUrl = tab?.url ?? '';
+  // Load the real status before deciding which actions to render; otherwise
+  // an already-recording/running session shows the wrong buttons.
+  await refreshStatus();
   const recording = runtime.status === 'recording';
   const actions = el(
     'div',
@@ -387,7 +389,6 @@ async function boot(): Promise<void> {
     flowsEl,
     el('footer', { className: 'muted tiny' }, '密码字段不录制 · 不连接云端 · 数据留在本机'),
   );
-  await refreshStatus();
   await renderFlows();
   window.setInterval(() => void refreshStatus(), 900);
 }

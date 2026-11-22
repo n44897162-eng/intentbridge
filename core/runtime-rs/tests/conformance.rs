@@ -427,6 +427,11 @@ fn app_scope_violation_pauses_on_every_platform() {
                         })
                         .expect("observation");
                 }
+                Directive::AwaitOutcomeDecision { error, .. } => {
+                    assert_eq!(error.code, "APP_SCOPE_VIOLATION");
+                    paused = true;
+                    break;
+                }
                 other => panic!("{name}: unexpected {other:?}"),
             }
             if engine.state().as_str() == "PAUSED_FOR_RECOVERY" {
@@ -436,6 +441,7 @@ fn app_scope_violation_pauses_on_every_platform() {
             host.now += 100.0;
         }
         assert!(paused, "{name} should pause on scope violation");
+        assert_eq!(engine.state().as_str(), "PAUSED_FOR_OUTCOME");
     }
 }
 

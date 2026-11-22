@@ -88,16 +88,38 @@ interface Installed {
         if (field.disabled || (field as HTMLInputElement).readOnly) {
           return { error: { code: 'PRECONDITION_FAILED', message: 'field is not editable' } };
         }
-        if (request.params['clear_first'] !== false) field.focus();
-        setInputValue(field, String(request.params['value'] ?? ''));
+        field.focus();
+        const incoming = String(request.params['value'] ?? '');
+        const next =
+          request.params['clear_first'] === false ? `${field.value}${incoming}` : incoming;
+        setInputValue(field, next);
         if (request.params['submit'] === true) {
-          field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          if (field.form) field.form.requestSubmit();
+          else
+            field.dispatchEvent(
+              new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+            );
         }
         return {};
       }
       if (action === 'select') {
         const select = element as HTMLSelectElement;
-        select.value = String(request.params['value'] ?? '');
+        const by = String(request.params['by'] ?? 'value');
+        const raw = String(request.params['value'] ?? '');
+        let option: HTMLOptionElement | undefined;
+        if (by === 'label') {
+          option = Array.from(select.options).find(
+            (item) => (item.label || item.textContent || '').trim() === raw,
+          );
+        } else if (by === 'index') {
+          option = select.options.item(Number(raw)) ?? undefined;
+        } else {
+          option = Array.from(select.options).find((item) => item.value === raw);
+        }
+        if (!option) {
+          return { error: { code: 'PRECONDITION_FAILED', message: 'select option not found' } };
+        }
+        select.value = option.value;
         select.dispatchEvent(new Event('change', { bubbles: true }));
         return {};
       }

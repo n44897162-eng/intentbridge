@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:692c46fe-b027-4c85-b056-b2e53f44bc16",
+  "serialNumber": "urn:uuid:b0328c42-5f42-475f-9a51-ca62da4c2d7b",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-11-22T03:40:09.693Z",
+    "timestamp": "2026-11-22T04:23:51.379Z",
     "tools": [
       {
         "vendor": "IntentBridge",
@@ -405,10 +405,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "b518e14d72a073ec37c439ca8f897f6a909ac2a849eab0c66343e21beae844fa"
+          "content": "3bea8f59c9a7c676369b61a995e67a8054ad512ca55b715d6914fe5763d2ef57"
         }
       ],
-      "size": 2331522
+      "size": 2336336
     },
     {
       "type": "file",
@@ -416,10 +416,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "b518e14d72a073ec37c439ca8f897f6a909ac2a849eab0c66343e21beae844fa"
+          "content": "3bea8f59c9a7c676369b61a995e67a8054ad512ca55b715d6914fe5763d2ef57"
         }
       ],
-      "size": 2331522
+      "size": 2336336
     },
     {
       "type": "file",
@@ -427,10 +427,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "aa0b60ea22894519a82989a8c7b8336bd9bd3911d91c07331aae96e201a4b100"
+          "content": "d4077693e5986bfea8d6936dc0b81dea6f582eb93f2bce6d1304237c70d9bad9"
         }
       ],
-      "size": 42117
+      "size": 44262
     },
     {
       "type": "file",
@@ -438,10 +438,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "79d92f2d22cb8829191e2679e6272621d89ce5cb9badcb8e8a1823f1d3539b00"
+          "content": "f952abcb484e470d9d30cae98dedb3dcd2d5f7d38ab6ae6190e2ab79ab62a5f9"
         }
       ],
-      "size": 23297
+      "size": 24903
     },
     {
       "type": "file",
@@ -449,10 +449,10 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "47f5681096ee91b5468277ecc31385fe54bf0e2f8a7dd49072ad651f135fc2b1"
+          "content": "afbc26d48f8b195d52f1dc68e52f357939af69be759ac80deecc1f6e6d7bde57"
         }
       ],
-      "size": 60069
+      "size": 60293
     }
   ]
 }

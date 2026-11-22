@@ -337,6 +337,13 @@ public sealed class UiaProvider : IDisposable
                 {
                     var appId = paramsNode["app_id"]?.GetValue<string>();
                     if (string.IsNullOrWhiteSpace(appId)) return Error("INVALID_IR", "launch app_id missing");
+                    // A launch may not override the flow's app scope (otherwise an
+                    // imported flow could start an arbitrary local program/URI).
+                    if (!string.IsNullOrEmpty(expectedScope) &&
+                        !string.Equals(appId, expectedScope, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Error("APP_SCOPE_VIOLATION", $"launch {appId} does not match app scope {expectedScope}");
+                    }
                     Process.Start(new ProcessStartInfo(appId) { UseShellExecute = true });
                     var deadline = Environment.TickCount64 + 20_000;
                     while (Environment.TickCount64 < deadline)
@@ -400,8 +407,15 @@ public sealed class UiaProvider : IDisposable
                         }
                         var value = (ValuePattern)valuePattern;
                         if (value.Current.IsReadOnly) return Error("PRECONDITION_FAILED", "element is read-only");
+                        var raw = paramsNode["value"]?.GetValue<string>() ?? string.Empty;
+                        if (raw.StartsWith("secret://", StringComparison.Ordinal))
+                        {
+                            // Never type the alias into the target. A Windows
+                            // secret backend is not shipped yet, so fail closed.
+                            return Error("SECRET_NOT_FOUND", "Windows secret store is not configured");
+                        }
                         element.SetFocus();
-                        value.SetValue(paramsNode["value"]?.GetValue<string>() ?? string.Empty);
+                        value.SetValue(raw);
                         return new JsonObject();
                     }
                     case "select":
