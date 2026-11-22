@@ -181,6 +181,23 @@ describe('web golden replay (real Chrome)', () => {
     expect((await stats()).submits).toBe(1);
   });
 
+  it('keeps recording across a same-origin navigation', async () => {
+    const page = await session.context.newPage();
+    await preparePage(page);
+    await page.goto(`${APP}/`, { waitUntil: 'domcontentloaded' });
+    const { flow } = await recordFlow(page, async () => {
+      await page.getByTestId('keyword-input').fill('第一段');
+      await page.getByTestId('search-submit').click();
+      await page.waitForSelector('[data-testid="results-summary"]');
+      await page.goto(`${APP}/?navigation=1`, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('keyword-input').fill('导航之后');
+    });
+    await page.close();
+    const inputs = flow.steps.filter((step) => step.action === 'input');
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    expect(validateFlowForExecution(flow).errors).toEqual([]);
+  });
+
   it('pauses when the page leaves the flow origin', async () => {
     const flow = cloneFlow((candidate) => {
       candidate.steps.splice(2, 0, {

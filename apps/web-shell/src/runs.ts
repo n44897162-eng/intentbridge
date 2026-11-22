@@ -263,6 +263,21 @@ export class RunManager {
       active.driver = driver;
       engine = await WasmEngine.fromModule(await this.compiledModule());
       const hooks: RunHooks = {
+        beforeApproval: async () => {
+          const stepId = active.lastStepId;
+          const step = stepId ? this.stepOf(active.flow, stepId) : undefined;
+          const risk = step?.risk ?? 'normal';
+          if (!step || (risk !== 'sensitive' && risk !== 'irreversible')) return;
+          const capture =
+            step.evidence_policy?.capture ??
+            active.flow.defaults?.evidence_policy?.capture ??
+            'target';
+          if (capture === 'none' || !evidenceDir) return;
+          const captured = await this.captureDecisionEvidence(active, driver);
+          if (!captured) {
+            throw new Error('sensitive action has no auditable evidence');
+          }
+        },
         approve: async (summary) => {
           if (options.autoApprove) return true;
           return (await this.waitDecision(active, 'approval', summary)) === true;
@@ -416,13 +431,20 @@ export class RunManager {
   private async captureDecisionEvidence(
     active: ActiveRun,
     driver: PlaywrightDriver,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const snapshot = driver.lastSnapshot;
-    if (!snapshot) return;
-    const candidate = snapshot.candidates.find((item) => item.in_viewport);
-    if (!candidate?.rect) return;
+    if (!snapshot) return false;
     const stepId = active.lastStepId ?? 'pause';
     const step = this.stepOf(active.flow, stepId);
+    const targetId =
+      step?.target?.anchors.native_identity?.value ?? step?.target?.anchors.semantic?.test_id;
+    const candidate =
+      snapshot.candidates.find(
+        (item) =>
+          Boolean(targetId) &&
+          (item.semantic?.test_id === targetId || item.native_identity?.value === targetId),
+      ) ?? snapshot.candidates.find((item) => item.in_viewport);
+    if (!candidate?.rect) return false;
     try {
       await driver.captureEvidence({
         stepId,
@@ -431,8 +453,9 @@ export class RunManager {
         framePath: candidate.frame_path ?? [],
         maskSelectors: step?.evidence_policy?.mask_selectors ?? [],
       });
+      return true;
     } catch {
-      /* evidence failure must not fail the run */
+      return false;
     }
   }
 

@@ -3,10 +3,11 @@
  * content script, and keeps flow/runtime state in local browser storage.
  * No page content or screenshot leaves the device.
  */
-import type { Flow } from '@intentbridge/action-ir';
+import type { Flow, Target } from '@intentbridge/action-ir';
 import { WasmEngine } from '@intentbridge/engine-wasm';
 import {
   buildFlowFromRecording,
+  dhashFromRgba,
   runFlow,
   type ActionRequest,
   type BrowserDriver,
@@ -22,7 +23,7 @@ interface StoredFlow {
 }
 
 interface RuntimeState {
-  status: 'idle' | 'recording' | 'running' | 'paused' | 'finished';
+  status: 'idle' | 'recording' | 'running' | 'paused' | 'finished' | 'failed';
   flow_id?: string;
   run_id?: string;
   state?: string;
@@ -45,6 +46,8 @@ let activeRun: {
 } | null = null;
 let currentTabId: number | null = null;
 let lastEventPersist = 0;
+const DECISION_ALARM = 'ib-decision-timeout';
+const HEARTBEAT_ALARM = 'ib-run-heartbeat';
 
 let runtimeQueue: Promise<void> = Promise.resolve();
 
@@ -202,6 +205,7 @@ class ExtensionDriver implements BrowserDriver {
 
 function requestDecision(kind: string, payload: unknown): Promise<unknown> {
   if (!activeRun) return Promise.resolve(null);
+  void chrome.alarms.create(DECISION_ALARM, { delayInMinutes: 10 });
   return new Promise((resolve) => {
     activeRun?.waiters.set(kind, resolve);
     void saveRuntime({ status: 'paused', pending: { kind, payload } });
@@ -212,6 +216,7 @@ function resolveDecision(kind: string, value: unknown): boolean {
   const waiter = activeRun?.waiters.get(kind);
   if (!waiter) return false;
   activeRun?.waiters.delete(kind);
+  void chrome.alarms.clear(DECISION_ALARM);
   void saveRuntime({ status: 'running', pending: null });
   waiter(value);
   return true;
@@ -265,6 +270,7 @@ async function startRun(
   const driver = new ExtensionDriver(tabId);
   activeRun = { cancelled: false, waiters: new Map() };
   currentTabId = tabId;
+  void chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 1 });
   await saveRuntime({
     status: 'running',
     flow_id: flowId,
@@ -338,6 +344,8 @@ async function startRun(
       engine.dispose();
       activeRun = null;
       currentTabId = null;
+      void chrome.alarms.clear(DECISION_ALARM);
+      void chrome.alarms.clear(HEARTBEAT_ALARM);
     }
   })();
   return runId;
@@ -353,6 +361,7 @@ async function startRecording(tabId: number): Promise<void> {
     .filter((value): value is string => Boolean(value));
   await tabMessage(tabId, { type: 'ib:start-recording' });
   recording = { tabId, initialTestIds };
+  void chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 1 });
   await saveRuntime({
     status: 'recording',
     flow_id: undefined,
@@ -380,9 +389,53 @@ async function stopRecording(): Promise<{ flow: Flow; warnings: string[] }> {
   );
   await validateWithEngine(built.flow);
   await saveFlow(built.flow);
+  void chrome.alarms.clear(HEARTBEAT_ALARM);
   await saveRuntime({ status: 'idle', pending: null });
   return { flow: built.flow, warnings: built.warnings };
 }
+
+async function reconcileRuntime(reason: string): Promise<void> {
+  const state = await getRuntime();
+  if (activeRun || recording) return;
+  if (!['running', 'paused', 'recording'].includes(state.status)) return;
+  await saveRuntime({
+    status: state.status === 'recording' ? 'idle' : 'failed',
+    pending: null,
+    error: {
+      code: 'EXTENSION_RESTARTED',
+      message: `${reason}: the service worker restarted before this session finished`,
+    },
+  });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === DECISION_ALARM) {
+    const run = activeRun;
+    if (run) {
+      run.cancelled = true;
+      for (const resolve of run.waiters.values()) resolve(null);
+      run.waiters.clear();
+      void saveRuntime({
+        status: 'failed',
+        pending: null,
+        error: { code: 'DECISION_TIMEOUT', message: 'human decision timed out' },
+      });
+    } else {
+      void reconcileRuntime('decision timeout');
+    }
+  } else if (alarm.name === HEARTBEAT_ALARM) {
+    void reconcileRuntime('heartbeat');
+  }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, change) => {
+  if (change.status === 'complete' && recording?.tabId === tabId) {
+    void ensureInjected(tabId).catch(() => undefined);
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => void reconcileRuntime('browser startup'));
+chrome.runtime.onInstalled.addListener(() => void reconcileRuntime('extension update'));
 
 chrome.runtime.onMessage.addListener((message: Record<string, unknown>, _sender, sendResponse) => {
   const type = String(message['type'] ?? '');
@@ -458,3 +511,5 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, _sender,
 });
 
 void getRuntime();
+
+void reconcileRuntime('service worker load');

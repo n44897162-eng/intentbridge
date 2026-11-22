@@ -22,6 +22,11 @@ interface Installed {
   root.__ibExtensionContent = { version: 1 } satisfies Installed;
 
   installHelpersInPage();
+  try {
+    if (window.sessionStorage.getItem('__ibRecorderState')) installRecorderInPage();
+  } catch {
+    /* no recording in this document */
+  }
 
   function helpers(): {
     snapshot: SnapshotFn;
@@ -175,7 +180,7 @@ interface Installed {
             return;
           }
           if (type === 'ib:start-recording') {
-            installRecorderInPage();
+            installRecorderInPage({ reset: true });
             sendResponse({ ok: true });
             return;
           }

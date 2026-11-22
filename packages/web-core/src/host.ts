@@ -55,6 +55,7 @@ export interface BrowserDriver {
 
 export interface RunHooks {
   approve?: (summary: unknown) => Promise<boolean> | boolean;
+  beforeApproval?: (summary: unknown) => Promise<void> | void;
   disambiguate?: (
     candidates: RankedCandidate[],
     reason: string,
@@ -484,6 +485,14 @@ export async function runFlow(options: {
           if (!decide) {
             await hooks.onPause?.(output as unknown as Record<string, unknown>);
             return finish('PAUSED_FOR_APPROVAL', 'paused', null);
+          }
+          try {
+            await hooks.beforeApproval?.(output.summary);
+          } catch (error) {
+            return finish('FAILED', 'failed', {
+              code: 'EVIDENCE_WRITE_FAILED',
+              message: (error as Error).message,
+            });
           }
           const approved = await decide(output.summary);
           response = timedSubmit(engine, plannerSamples, {

@@ -502,13 +502,162 @@ export function installHelpersInPage(): void {
     clearMarkers,
     stableMs: () => Math.max(0, performance.now() - lastMutation),
   };
+  try {
+    if (window.sessionStorage.getItem('__ibRecorderState')) installRecorderInPage();
+  } catch {
+    /* storage can be unavailable in sandboxed documents */
+  }
 }
 
-export function installRecorderInPage(): void {
+export function installRecorderInPage(options: { reset?: boolean } = {}): void {
   const root = window as unknown as Record<string, any>;
+
+  function installRecorderListeners(root: Record<string, any>): void {
+    if (root.__ibRecorderListeners) return;
+    const record = (type: 'click' | 'input' | 'select', target: Element | null): void => {
+      const recorder = root.__ibRecorder;
+      const helpers = root.__ibHelpers;
+      if (!recorder?.active || !target) return;
+      if (recorder.events.length >= 200) {
+        recorder.warnings.push('recording event limit reached; recording paused');
+        recorder.active = false;
+        return;
+      }
+      const isPassword = (() => {
+        if (!(target instanceof HTMLInputElement)) return false;
+        const type = (target.type || '').toLowerCase();
+        return (
+          type === 'password' ||
+          (target.getAttribute('autocomplete') ?? '').toLowerCase().includes('password')
+        );
+      })();
+      if (isPassword) recorder.warnings.push('password-like field was not recorded');
+      let candidate: PageCandidate;
+      try {
+        candidate = helpers.candidateFor(target, true) as PageCandidate;
+      } catch {
+        recorder.warnings.push('could not snapshot an event target');
+        return;
+      }
+      const value =
+        (type === 'input' || type === 'select') &&
+        !isPassword &&
+        (target as HTMLInputElement).value !== undefined
+          ? String((target as HTMLInputElement).value)
+          : undefined;
+      const event: RecorderEvent = {
+        type,
+        candidate,
+        ...(value !== undefined ? { value } : {}),
+        password: isPassword,
+        url: location.href,
+        title: document.title,
+        taken_at: performance.now() - recorder.started_at,
+      };
+      recorder.events.push(event);
+      try {
+        window.sessionStorage.setItem(
+          '__ibRecorderState',
+          JSON.stringify({
+            version: 1,
+            active: recorder.active,
+            events: recorder.events,
+            warnings: recorder.warnings,
+            started_at_wall: Date.now() - (performance.now() - recorder.started_at),
+          }),
+        );
+      } catch {
+        /* ignore */
+      }
+      const captureAfter = (recorded: RecorderEvent): void => {
+        window.setTimeout(() => {
+          try {
+            const afterSnapshot = helpers.snapshot({ max: 400 });
+            recorded.after = {
+              url: location.href,
+              testIds: afterSnapshot.candidates
+                .map((item: PageCandidate) => item.semantic?.test_id)
+                .filter((item: string | undefined): item is string => Boolean(item)),
+              candidates_by_testid: Object.fromEntries(
+                afterSnapshot.candidates
+                  .filter((item: PageCandidate) => item.semantic?.test_id)
+                  .map((item: PageCandidate) => [item.semantic!.test_id!, item]),
+              ),
+            };
+            try {
+              window.sessionStorage.setItem(
+                '__ibRecorderState',
+                JSON.stringify({
+                  version: 1,
+                  active: recorder.active,
+                  events: recorder.events,
+                  warnings: recorder.warnings,
+                  started_at_wall: Date.now() - (performance.now() - recorder.started_at),
+                }),
+              );
+            } catch {
+              /* ignore */
+            }
+          } catch {
+            /* snapshot failure is non-fatal */
+          }
+        }, 320);
+      };
+      captureAfter(event);
+    };
+    root.__ibRecorderListeners = {
+      click: (event: Event) => record('click', event.target as Element),
+      change: (event: Event) => {
+        const target = event.target as Element;
+        if (target instanceof HTMLSelectElement) {
+          record('select', target);
+          return;
+        }
+        if (
+          target instanceof HTMLInputElement &&
+          (target.type === 'checkbox' || target.type === 'radio')
+        ) {
+          return;
+        }
+        record('input', target);
+      },
+    };
+    window.addEventListener('click', root.__ibRecorderListeners.click, true);
+    window.addEventListener('change', root.__ibRecorderListeners.change, true);
+  }
+
   if (root.__ibRecorder) return;
   const helpers = root.__ibHelpers;
   if (!helpers) throw new Error('snapshot helpers must be installed before the recorder');
+  const STORAGE_KEY = '__ibRecorderState';
+  if (options.reset) {
+    try {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+  let restored: Record<string, any> | null = null;
+  if (!options.reset) {
+    try {
+      restored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? 'null') as Record<
+        string,
+        any
+      > | null;
+    } catch {
+      restored = null;
+    }
+  }
+  if (restored?.active && Array.isArray(restored.events)) {
+    const elapsed = Date.now() - Number(restored.started_at_wall ?? Date.now());
+    root.__ibRecorder = {
+      ...restored,
+      active: true,
+      started_at: performance.now() - Math.max(0, elapsed),
+    };
+    installRecorderListeners(root);
+    return;
+  }
 
   const recorder = {
     version: 1,
@@ -518,6 +667,24 @@ export function installRecorderInPage(): void {
     warnings: [] as string[],
   };
   root.__ibRecorder = recorder;
+
+  const persist = (): void => {
+    try {
+      window.sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          active: recorder.active,
+          events: recorder.events,
+          warnings: recorder.warnings,
+          started_at_wall: Date.now() - (performance.now() - recorder.started_at),
+        }),
+      );
+    } catch {
+      // Quota errors must not break the page; events stay in memory.
+    }
+  };
+  persist();
 
   const isPasswordField = (element: Element): boolean => {
     if (!(element instanceof HTMLInputElement)) return false;
@@ -585,30 +752,13 @@ export function installRecorderInPage(): void {
       taken_at: performance.now() - recorder.started_at,
     };
     recorder.events.push(event);
+    persist();
     captureAfter(event);
   };
 
-  root.__ibRecorderListeners = {
-    click: (event: Event) => record('click', event.target as Element),
-    change: (event: Event) => {
-      const target = event.target as Element;
-      if (target instanceof HTMLSelectElement) {
-        record('select', target);
-        return;
-      }
-      if (
-        target instanceof HTMLInputElement &&
-        (target.type === 'checkbox' || target.type === 'radio')
-      ) {
-        // The click event already records the toggle; a duplicate change step
-        // would double-execute it on replay.
-        return;
-      }
-      record('input', target);
-    },
-  };
-  window.addEventListener('click', root.__ibRecorderListeners.click, true);
-  window.addEventListener('change', root.__ibRecorderListeners.change, true);
+  installRecorderListeners(root);
+  root.__ibPersist = persist;
+  window.addEventListener('pagehide', persist);
 }
 
 export async function stopRecorderInPage(): Promise<{
@@ -618,22 +768,64 @@ export async function stopRecorderInPage(): Promise<{
   stopped_at: number;
 }> {
   const root = window as unknown as Record<string, any>;
-  const recorder = root.__ibRecorder;
+  let recorder = root.__ibRecorder;
+  if (!recorder) {
+    try {
+      const stored = JSON.parse(
+        window.sessionStorage.getItem('__ibRecorderState') ?? 'null',
+      ) as Record<string, any> | null;
+      if (stored?.active && Array.isArray(stored.events)) {
+        recorder = { ...stored, active: false };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (!recorder) throw new Error('no active recorder');
+  // Flush a still-focused field while listeners are still active so its final
+  // change is part of the recording.
+  try {
+    (document.activeElement as HTMLElement | null)?.blur();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  } catch {
+    /* ignore */
+  }
   recorder.active = false;
   if (root.__ibRecorderListeners) {
     window.removeEventListener('click', root.__ibRecorderListeners.click, true);
     window.removeEventListener('change', root.__ibRecorderListeners.change, true);
     delete root.__ibRecorderListeners;
   }
+  if (root.__ibPersist) {
+    window.removeEventListener('pagehide', root.__ibPersist);
+    delete root.__ibPersist;
+  }
   // Allow the last after-snapshots to settle without blocking the page.
   await new Promise((resolve) => window.setTimeout(resolve, 420));
   const result = {
     events: recorder.events as RecorderEvent[],
-    warnings: recorder.warnings as string[],
+    warnings: (recorder.warnings ?? []) as string[],
     started_at: recorder.started_at as number,
     stopped_at: performance.now(),
   };
+  // Read the final events from storage as well: the page may have navigated
+  // since the in-memory recorder was created.
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem('__ibRecorderState') ?? 'null',
+    ) as Record<string, any> | null;
+    if (
+      stored?.active &&
+      Array.isArray(stored.events) &&
+      stored.events.length > result.events.length
+    ) {
+      result.events = stored.events as RecorderEvent[];
+      result.warnings = (stored.warnings ?? result.warnings) as string[];
+    }
+    window.sessionStorage.removeItem('__ibRecorderState');
+  } catch {
+    /* ignore */
+  }
   delete root.__ibRecorder;
   return result;
 }

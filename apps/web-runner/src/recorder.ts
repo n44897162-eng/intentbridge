@@ -11,7 +11,10 @@ import {
 } from '@intentbridge/web-core';
 
 export async function preparePage(page: Page): Promise<void> {
-  await page.addInitScript(installHelpersInPage);
+  // addInitScript serialises the function, so a second function reference would
+  // be lost. Inline both so a navigated document can restore the recorder state.
+  const init = `(${installHelpersInPage.toString()})();\n(function(){try{if(window.sessionStorage.getItem('__ibRecorderState')){(${installRecorderInPage.toString()})();}}catch(e){}})();`;
+  await page.addInitScript({ content: init });
   try {
     await page.evaluate(installHelpersInPage);
   } catch {
@@ -33,7 +36,7 @@ export async function startRecording(page: Page): Promise<RecordingSession> {
   const initialTestIds = (snapshot?.candidates ?? [])
     .map((candidate) => candidate.semantic?.test_id)
     .filter((value): value is string => Boolean(value));
-  await page.evaluate(installRecorderInPage);
+  await page.evaluate(installRecorderInPage, { reset: true });
   return { initialTestIds, initialUrl: page.url() };
 }
 
