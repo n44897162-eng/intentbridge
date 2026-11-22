@@ -64,7 +64,7 @@ beforeAll(async () => {
     env: {
       ...process.env,
       DISPLAY: process.env.DISPLAY ?? ':1',
-      XAUTHORITY: process.env.XAUTHORITY ?? '/root/.Xauthority',
+      XAUTHORITY: process.env.XAUTHORITY ?? join(process.env.HOME ?? '/tmp', '.Xauthority'),
     },
     args: [
       '--no-sandbox',
