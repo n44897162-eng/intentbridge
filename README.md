@@ -70,7 +70,7 @@ pnpm --filter @intentbridge/web-extension build
 
 源码仓库不提交 APK/DLL/zip；推送 `v*` tag 后，[`.github/workflows/release.yml`](.github/workflows/release.yml) 会构建并挂到 GitHub Release。
 
-本地生成：`pnpm package`（需要 .NET/Android SDK；见 [`docs/GITHUB.md`](docs/GITHUB.md)）。
+本地生成：`pnpm package`（需要 .NET/Android SDK）。上传/发布步骤见 [`docs/GITHUB.md`](docs/GITHUB.md)。
 
 ## 验证
 
