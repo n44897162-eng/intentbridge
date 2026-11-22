@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T20:23:43.312Z",
+  "generated_at": "2026-11-22T03:38:49.386Z",
   "cases": [
     {
       "id": "baseline",
@@ -116,12 +116,12 @@
       "executed_actions": [
         {
           "action": "input",
-          "candidate_test_id": "field-z35zal",
+          "candidate_test_id": "field-4f8tk3",
           "candidate_name": "搜索"
         },
         {
           "action": "click",
-          "candidate_test_id": "submit-z35zal",
+          "candidate_test_id": "submit-4f8tk3",
           "candidate_name": "搜索"
         }
       ],

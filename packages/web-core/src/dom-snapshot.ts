@@ -47,8 +47,13 @@ export function installHelpersInPage(): void {
 
   let lastMutation = performance.now();
   try {
-    new MutationObserver(() => {
-      lastMutation = performance.now();
+    new MutationObserver((mutations) => {
+      // Our own candidate markers must not count as application changes.
+      const meaningful = mutations.some(
+        (mutation) =>
+          mutation.type !== 'attributes' || !(mutation.attributeName ?? '').startsWith('data-ib-'),
+      );
+      if (meaningful) lastMutation = performance.now();
     }).observe(document.documentElement, {
       subtree: true,
       childList: true,

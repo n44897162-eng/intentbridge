@@ -256,7 +256,8 @@ export class RunManager {
         appScope: flow.app_scope.value,
         evidenceDir,
         secrets,
-        onEvidence: (info) => this.recordEvidence(runId, info.stepId, info.path, info.sha256),
+        onEvidence: (info) =>
+          this.recordEvidence(runId, info.stepId, info.path, info.sha256, info.width, info.height),
       });
       await preparePage(session.page);
       active.driver = driver;
@@ -351,7 +352,14 @@ export class RunManager {
     }
   }
 
-  private recordEvidence(runId: string, stepId: string, path: string, sha256: string): void {
+  private recordEvidence(
+    runId: string,
+    stepId: string,
+    path: string,
+    sha256: string,
+    width: number,
+    height: number,
+  ): void {
     const settings = this.settings();
     if (this.db.evidenceBytes() > settings.storage_limit_mb * 1024 * 1024) return;
     const retention = Math.max(0, settings.evidence_retention_days);
@@ -363,8 +371,8 @@ export class RunManager {
       path,
       sha256,
       sensitive: 0,
-      width: null,
-      height: null,
+      width,
+      height,
       created_at: new Date().toISOString(),
       expires_at: expires,
     });

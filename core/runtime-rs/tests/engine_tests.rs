@@ -108,6 +108,8 @@ struct Host {
     hide_elements: bool,
     hide_after_write: bool,
     stale_first: bool,
+    footer_add_after: u32,
+    scroll_count: u32,
     scope_override: Option<String>,
     performed: Vec<String>,
     started: bool,
@@ -128,9 +130,27 @@ impl Host {
             hide_elements: false,
             hide_after_write: false,
             stale_first: false,
+            footer_add_after: 0,
+            scroll_count: 0,
             scope_override: None,
             performed: Vec::new(),
             started: false,
+        }
+    }
+
+    fn add_footer(&mut self) {
+        if !self
+            .candidates
+            .iter()
+            .any(|item| item.candidate_id == "c-footer")
+        {
+            self.candidates.push(candidate(
+                "c-footer",
+                "footer",
+                "contentinfo",
+                "页脚",
+                &["footer.footer"],
+            ));
         }
     }
 
@@ -237,6 +257,12 @@ fn drive(mut engine: Engine, mut host: Host) -> DriveResult {
                 host.performed.push(format!("{step_id}:{action}"));
                 if action == "input" {
                     host.add_results();
+                }
+                if action == "scroll" {
+                    host.scroll_count += 1;
+                    if host.footer_add_after > 0 && host.scroll_count >= host.footer_add_after {
+                        host.add_footer();
+                    }
                 }
                 let failure = host.fail_once(step_id);
                 if host.hide_after_write && action == "click" {
@@ -1022,6 +1048,54 @@ fn compensation_is_best_effort_and_ends_the_run_failed() {
             .count(),
         1
     );
+}
+
+#[test]
+fn scroll_retries_until_boundary_or_max_attempts() {
+    let mut flow = golden();
+    flow["permissions"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("scroll"));
+    flow["steps"] = json!([
+        flow["steps"][0].clone(),
+        {
+            "id": "scroll",
+            "action": "scroll",
+            "risk": "normal",
+            "target": null,
+            "postconditions": [{ "kind": "window-stable", "min_stable_ms": 100 }],
+            "params": {
+                "direction": "down",
+                "amount": 300,
+                "max_attempts": 3,
+                "boundary_condition": {
+                    "kind": "element-present",
+                    "target": { "anchors": { "native_identity": { "kind": "web-test-id", "value": "footer" } } }
+                }
+            }
+        },
+        { "id": "done", "action": "end", "params": { "status": "success" } }
+    ]);
+    let mut host = Host::new();
+    host.footer_add_after = 2;
+    let result = drive(configured_engine(flow), host);
+    assert_eq!(result.engine.state().as_str(), "SUCCEEDED");
+    assert_eq!(
+        result
+            .host
+            .performed
+            .iter()
+            .filter(|action| action.as_str() == "scroll:scroll")
+            .count(),
+        2
+    );
+    assert!(result
+        .engine
+        .events()
+        .iter()
+        .any(|event| event.event_type == "StepSucceeded"
+            && event.step_id.as_deref() == Some("scroll")));
 }
 
 #[test]

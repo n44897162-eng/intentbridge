@@ -117,4 +117,8 @@ body {
 .frame-body { background: #fff; padding: 18px; }
 iframe { display: block; margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; }
 #results-summary { color: var(--muted); font-size: 14px; margin: 16px 0 0; }
-[hidden] { display: none !important; }
+[hidden] { display: none !important; }.filters { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; margin-top: 10px; }
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.filters select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.inline-check { flex-direction: row !important; align-items: center; gap: 6px !important; padding-bottom: 6px; }
+.ghost-button { margin-top: 14px; background: #eaf0fb; color: var(--brand); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }

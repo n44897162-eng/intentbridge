@@ -35,6 +35,11 @@ class IntentBridgeAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
+    override fun onInterrupt() {
+        recording = false
+        cancelNotification()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         lastStructureChange = System.currentTimeMillis()
         if (!recording || event == null) return

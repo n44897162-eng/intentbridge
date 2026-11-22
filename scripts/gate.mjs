@@ -30,11 +30,13 @@ const steps = [
     'cargo',
     ['build', '-p', 'ib-runtime', '--lib', '--release', '--target', 'wasm32-unknown-unknown'],
   ],
+  ['platform builds (optional toolchains)', 'node', ['scripts/build-platforms.mjs']],
   ['js build', 'pnpm', ['-r', '--if-present', 'run', 'build']],
   ['tests (unit + e2e + drift + soak)', 'pnpm', ['exec', 'vitest', 'run']],
   ['lint', 'node', ['scripts/lint.mjs']],
   ['format check', 'pnpm', ['exec', 'prettier', '--check', '.']],
   ['sbom', 'node', ['scripts/sbom.mjs']],
+  ['package artifacts', 'node', ['scripts/package.mjs']],
 ];
 
 const results = [];

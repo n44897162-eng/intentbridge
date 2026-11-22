@@ -1,0 +1,196 @@
+{
+  "generated_at": "2026-11-22T03:40:05.710Z",
+  "flows": 21,
+  "succeeded": 21,
+  "results": [
+    {
+      "id": "golden-01",
+      "name": "搜索并断言结果",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-02",
+      "name": "空关键词显示校验错误",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 2
+    },
+    {
+      "id": "golden-03",
+      "name": "打开并关闭详情弹窗",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 5
+    },
+    {
+      "id": "golden-04",
+      "name": "SPA 报表路由与返回",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 3
+    },
+    {
+      "id": "golden-05",
+      "name": "加载更多并滚动",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 6
+    },
+    {
+      "id": "golden-06",
+      "name": "Shadow DOM 输入与提交",
+      "variant": "shadow",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-07",
+      "name": "同源 iframe 表单",
+      "variant": "iframe",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-08",
+      "name": "按报告类型筛选",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-09",
+      "name": "包含归档开关",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-10",
+      "name": "回车提交搜索",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 2
+    },
+    {
+      "id": "golden-11",
+      "name": "连续两次搜索",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 7
+    },
+    {
+      "id": "golden-12",
+      "name": "分支进入详情",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-13",
+      "name": "set-variable 与输出断言",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-14",
+      "name": "等待页面稳定",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 1
+    },
+    {
+      "id": "golden-15",
+      "name": "慢加载结果",
+      "variant": "slow",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 3
+    },
+    {
+      "id": "golden-16",
+      "name": "读取输入框当前值",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 4
+    },
+    {
+      "id": "golden-17",
+      "name": "详情关闭后消失",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 5
+    },
+    {
+      "id": "golden-18",
+      "name": "两次加载更多",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 5
+    },
+    {
+      "id": "golden-19",
+      "name": "初始摘要不可见",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 1
+    },
+    {
+      "id": "golden-20",
+      "name": "有界滚动",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 2
+    },
+    {
+      "id": "golden-21",
+      "name": "两次搜索并读取断言",
+      "variant": "baseline",
+      "status": "succeeded",
+      "state": "SUCCEEDED",
+      "error": null,
+      "actions": 7
+    }
+  ]
+}

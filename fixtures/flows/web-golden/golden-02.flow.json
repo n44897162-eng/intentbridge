@@ -1,0 +1,181 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "a1000002-0000-4000-8000-000000000002",
+  "name": "空关键词显示校验错误",
+  "description": "表单校验错误必须由可观察条件证明。",
+  "platform": "web",
+  "app_scope": {
+    "kind": "web-origin",
+    "value": "http://127.0.0.1:4317"
+  },
+  "variables": [
+    {
+      "name": "keyword",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "permissions": [
+    "read-ui",
+    "read-screen",
+    "click",
+    "type",
+    "select",
+    "scroll",
+    "launch",
+    "navigate"
+  ],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "打开搜索页",
+      "risk": "normal",
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "textbox",
+                "name": "搜索",
+                "placeholder": "输入关键词",
+                "test_id": "keyword-input"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "keyword-input"
+              },
+              "structure": {
+                "path": ["main.page", "form#search-form", "input#keyword"]
+              },
+              "visual": {
+                "norm_rect": {
+                  "x": 0.18,
+                  "y": 0.2,
+                  "w": 0.42,
+                  "h": 0.05
+                },
+                "viewport": {
+                  "w": 1280,
+                  "h": 800
+                },
+                "device_scale": 1
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "app_id": "http://127.0.0.1:4317",
+        "url": "http://127.0.0.1:4317/",
+        "wait_ready": true
+      }
+    },
+    {
+      "id": "submit-empty",
+      "action": "click",
+      "name": "空提交",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "button",
+            "name": "搜索",
+            "test_id": "search-submit"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "search-submit"
+          },
+          "structure": {
+            "path": ["main.page", "form#search-form", "button#search-submit"]
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "text-matches",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "alert",
+                "test_id": "form-error"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "form-error"
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          },
+          "matcher": {
+            "type": "contains",
+            "value": "请输入关键词",
+            "case_sensitive": false
+          }
+        }
+      ],
+      "params": {
+        "button": "left",
+        "click_count": 1
+      }
+    },
+    {
+      "id": "assert-error",
+      "action": "assert",
+      "name": "错误可见",
+      "params": {
+        "condition": {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "alert",
+                "test_id": "form-error"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "form-error"
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "done",
+      "action": "end",
+      "name": "完成",
+      "params": {
+        "status": "success"
+      }
+    }
+  ],
+  "created_by": "fixture-web",
+  "revision": 1,
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "updated_at": "2026-01-01T00:00:00.000Z",
+  "labels": {
+    "suite": "web-golden"
+  },
+  "defaults": {
+    "evidence_policy": {
+      "capture": "target",
+      "save_on": "failure",
+      "retention_days": 7,
+      "mask_text": true
+    }
+  }
+}

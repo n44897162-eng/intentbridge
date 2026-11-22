@@ -512,6 +512,7 @@ pub struct Engine {
     finished_output: bool,
     approval_granted_for: Option<String>,
     single_step: bool,
+    scroll_attempts: u32,
     recovery_reason: Option<String>,
 }
 
@@ -624,6 +625,7 @@ impl Engine {
             finished_output: false,
             approval_granted_for: None,
             single_step: false,
+            scroll_attempts: 0,
             recovery_reason: None,
         }
     }
@@ -945,6 +947,7 @@ impl Engine {
         self.manual_override = false;
         self.last_error = None;
         self.approval_granted_for = None;
+        self.scroll_attempts = 0;
         self.step_deadline = self.now
             + step
                 .timeout_ms
@@ -1522,6 +1525,9 @@ impl Engine {
         let resolved_params = self.resolve_value(&params)?;
         let preview = preview_params(&resolved_params);
         let idempotency = self.idempotency_key(&step);
+        if step.action == Action::Scroll {
+            self.scroll_attempts += 1;
+        }
         if step.action.is_mutating() {
             self.attempted_writes += 1;
             self.side_effect_pending = true;
@@ -1560,6 +1566,44 @@ impl Engine {
             idempotency_key: idempotency,
             resolved: self.resolved.clone(),
             params_preview: preview,
+        }))
+    }
+
+    fn request_scroll_boundary(&mut self) -> Result<StepOutput, BridgeError> {
+        let step = self.step()?;
+        let boundary = step
+            .params
+            .as_ref()
+            .and_then(|params| params.get("boundary_condition"))
+            .cloned()
+            .ok_or_else(|| err("INVALID_IR", "scroll boundary condition is missing"))?;
+        let condition: Condition = serde_json::from_value(boundary)
+            .map_err(|_| err("INVALID_IR", "scroll boundary condition is invalid"))?;
+        let condition = self.resolve_condition(condition)?;
+        let condition_id = format!(
+            "{}-boundary-0",
+            if self.attempt_id.is_empty() {
+                format!("s{}", self.step_index)
+            } else {
+                self.attempt_id.clone()
+            }
+        );
+        self.pending = Pending::Condition {
+            step_id: step.id.clone(),
+            condition_id: condition_id.clone(),
+            purpose: Purpose::ScrollBoundary,
+            deadline: self.step_deadline,
+            round: 0,
+        };
+        self.set_state(EngineState::WaitingCondition);
+        Ok(self.output(Directive::AwaitCondition {
+            step_id: step.id,
+            attempt_id: self.attempt_id.clone(),
+            condition_id,
+            condition: serde_json::to_value(&condition).unwrap_or(Value::Null),
+            purpose: "boundary".into(),
+            deadline_mono_ms: self.step_deadline,
+            poll_after_ms: 80.0,
         }))
     }
 
@@ -1637,6 +1681,16 @@ impl Engine {
                 Some(attempt_id.to_string()),
                 json!({ "name": name, "sensitive": sensitive }),
             );
+        }
+        if step.action == Action::Scroll {
+            let has_boundary = step
+                .params
+                .as_ref()
+                .and_then(|params| params.get("boundary_condition"))
+                .is_some();
+            if has_boundary {
+                return self.request_scroll_boundary();
+            }
         }
         if step.postconditions.is_empty() {
             return self.complete_step_success();
@@ -1763,6 +1817,28 @@ impl Engine {
         );
         if purpose == Purpose::Branch {
             return self.branch_decision(outcome.satisfied);
+        }
+        if purpose == Purpose::ScrollBoundary && !outcome.satisfied {
+            let step = self.step()?;
+            let max_attempts = step
+                .params
+                .as_ref()
+                .and_then(|params| params.get("max_attempts"))
+                .and_then(Value::as_u64)
+                .unwrap_or(5)
+                .max(1);
+            if (self.scroll_attempts as u64) < max_attempts && self.now < deadline {
+                return self.perform_action();
+            }
+            return self.fail_step(
+                err(
+                    "TIMEOUT",
+                    "scroll did not reach its boundary within max_attempts",
+                )
+                .with_detail(
+                    json!({ "attempts": self.scroll_attempts, "max_attempts": max_attempts }),
+                ),
+            );
         }
         if outcome.satisfied {
             self.set_state(EngineState::Running);

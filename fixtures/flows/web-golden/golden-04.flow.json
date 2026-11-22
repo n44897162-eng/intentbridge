@@ -1,0 +1,252 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "a1000004-0000-4000-8000-000000000004",
+  "name": "SPA 报表路由与返回",
+  "description": "SPA pushState 路由，不整页刷新。",
+  "platform": "web",
+  "app_scope": {
+    "kind": "web-origin",
+    "value": "http://127.0.0.1:4317"
+  },
+  "variables": [
+    {
+      "name": "keyword",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "permissions": [
+    "read-ui",
+    "read-screen",
+    "click",
+    "type",
+    "select",
+    "scroll",
+    "launch",
+    "navigate"
+  ],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "打开搜索页",
+      "risk": "normal",
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "textbox",
+                "name": "搜索",
+                "placeholder": "输入关键词",
+                "test_id": "keyword-input"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "keyword-input"
+              },
+              "structure": {
+                "path": ["main.page", "form#search-form", "input#keyword"]
+              },
+              "visual": {
+                "norm_rect": {
+                  "x": 0.18,
+                  "y": 0.2,
+                  "w": 0.42,
+                  "h": 0.05
+                },
+                "viewport": {
+                  "w": 1280,
+                  "h": 800
+                },
+                "device_scale": 1
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "app_id": "http://127.0.0.1:4317",
+        "url": "http://127.0.0.1:4317/",
+        "wait_ready": true
+      }
+    },
+    {
+      "id": "go-reports",
+      "action": "click",
+      "name": "进入报表",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "link",
+            "name": "报表",
+            "test_id": "nav-reports"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "nav-reports"
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "reports-page"
+              },
+              "structure": {
+                "path": ["main.page", "section#reports-page"]
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "button": "left"
+      }
+    },
+    {
+      "id": "back-home",
+      "action": "click",
+      "name": "返回首页",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "button",
+            "name": "返回首页",
+            "test_id": "reports-back"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "reports-back"
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "textbox",
+                "name": "搜索",
+                "placeholder": "输入关键词",
+                "test_id": "keyword-input"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "keyword-input"
+              },
+              "structure": {
+                "path": ["main.page", "form#search-form", "input#keyword"]
+              },
+              "visual": {
+                "norm_rect": {
+                  "x": 0.18,
+                  "y": 0.2,
+                  "w": 0.42,
+                  "h": 0.05
+                },
+                "viewport": {
+                  "w": 1280,
+                  "h": 800
+                },
+                "device_scale": 1
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "button": "left"
+      }
+    },
+    {
+      "id": "assert-home",
+      "action": "assert",
+      "name": "回到搜索页",
+      "params": {
+        "condition": {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "textbox",
+                "name": "搜索",
+                "placeholder": "输入关键词",
+                "test_id": "keyword-input"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "keyword-input"
+              },
+              "structure": {
+                "path": ["main.page", "form#search-form", "input#keyword"]
+              },
+              "visual": {
+                "norm_rect": {
+                  "x": 0.18,
+                  "y": 0.2,
+                  "w": 0.42,
+                  "h": 0.05
+                },
+                "viewport": {
+                  "w": 1280,
+                  "h": 800
+                },
+                "device_scale": 1
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "done",
+      "action": "end",
+      "name": "完成",
+      "params": {
+        "status": "success"
+      }
+    }
+  ],
+  "created_by": "fixture-web",
+  "revision": 1,
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "updated_at": "2026-01-01T00:00:00.000Z",
+  "labels": {
+    "suite": "web-golden"
+  },
+  "defaults": {
+    "evidence_policy": {
+      "capture": "target",
+      "save_on": "failure",
+      "retention_days": 7,
+      "mask_text": true
+    }
+  }
+}

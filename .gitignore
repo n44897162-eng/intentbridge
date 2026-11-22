@@ -7,3 +7,9 @@ target/
 coverage/
 .env
 .DS_Store
+
+local.properties
+**/bin/
+**/obj/
+.gradle/
+local.properties

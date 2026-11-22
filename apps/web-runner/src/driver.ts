@@ -21,7 +21,13 @@ export interface PlaywrightDriverOptions {
   evidenceDir?: string;
   secrets?: Record<string, string>;
   actionTimeoutMs?: number;
-  onEvidence?: (info: { stepId: string; path: string; sha256: string }) => void;
+  onEvidence?: (info: {
+    stepId: string;
+    path: string;
+    sha256: string;
+    width: number;
+    height: number;
+  }) => void;
 }
 
 function errorResult(code: string, message: string): DriverActResult {
@@ -298,7 +304,7 @@ export class PlaywrightDriver implements BrowserDriver {
     const path = resolve(directory, `${Date.now()}-${safeLabel}.png`);
     await writeFile(path, buffer);
     const sha256 = createHash('sha256').update(buffer).digest('hex');
-    this.options.onEvidence?.({ stepId: options.stepId, path, sha256 });
+    this.options.onEvidence?.({ stepId: options.stepId, path, sha256, width, height });
     return { path, sha256, width, height };
   }
 }

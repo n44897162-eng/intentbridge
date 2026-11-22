@@ -46,16 +46,43 @@ jobs:
             sbom/
           if-no-files-found: ignore
 
-  windows-not-run:
-    name: Windows build (NOT_RUN in this repository state)
+  windows-build:
+    name: Windows compile (dotnet 8, no runtime tests)
     runs-on: windows-latest
-    if: false # Enable only when the Windows slice has been validated (BUG-001).
     steps:
-      - run: echo "Windows verification is intentionally disabled until BUG-001 is resolved."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build UIA executor and WPF fixture
+        run: |
+          dotnet build fixtures/windows-fixture/IntentBridge.Fixture.csproj -c Release
+          dotnet build apps/windows-executor/IntentBridge.Executor.csproj -c Release
 
-  android-not-run:
-    name: Android build (NOT_RUN in this repository state)
+  android-build:
+    name: Android compile (SDK 35 + JNI, no emulator)
     runs-on: ubuntu-24.04
-    if: false # Enable only with an Android SDK/emulator runner (BUG-002).
+    timeout-minutes: 40
     steps:
-      - run: echo "Android verification is intentionally disabled until BUG-002 is resolved."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.89.0'
+          targets: aarch64-linux-android,x86_64-linux-android
+      - name: Install NDK and Gradle
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;29.0.14206865"
+          curl -sSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt/gradle
+      - name: Build native library and APKs
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          export GRADLE_COMMAND=/opt/gradle/gradle-8.9/bin/gradle
+          node scripts/build-platforms.mjs

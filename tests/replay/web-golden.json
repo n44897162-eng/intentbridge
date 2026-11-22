@@ -1,0 +1,197 @@
+{
+  "version": "1.0.0",
+  "flows": [
+    {
+      "id": "golden-01",
+      "file": "fixtures/flows/web-golden/golden-01.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "搜索并断言结果"
+    },
+    {
+      "id": "golden-02",
+      "file": "fixtures/flows/web-golden/golden-02.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "空关键词显示校验错误"
+    },
+    {
+      "id": "golden-03",
+      "file": "fixtures/flows/web-golden/golden-03.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "打开并关闭详情弹窗"
+    },
+    {
+      "id": "golden-04",
+      "file": "fixtures/flows/web-golden/golden-04.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "SPA 报表路由与返回"
+    },
+    {
+      "id": "golden-05",
+      "file": "fixtures/flows/web-golden/golden-05.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "加载更多并滚动"
+    },
+    {
+      "id": "golden-06",
+      "file": "fixtures/flows/web-golden/golden-06.flow.json",
+      "variant": "shadow",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "Shadow DOM 输入与提交"
+    },
+    {
+      "id": "golden-07",
+      "file": "fixtures/flows/web-golden/golden-07.flow.json",
+      "variant": "iframe",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "同源 iframe 表单"
+    },
+    {
+      "id": "golden-08",
+      "file": "fixtures/flows/web-golden/golden-08.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "按报告类型筛选"
+    },
+    {
+      "id": "golden-09",
+      "file": "fixtures/flows/web-golden/golden-09.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "包含归档开关"
+    },
+    {
+      "id": "golden-10",
+      "file": "fixtures/flows/web-golden/golden-10.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "回车提交搜索"
+    },
+    {
+      "id": "golden-11",
+      "file": "fixtures/flows/web-golden/golden-11.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword1": "报告",
+        "keyword2": "画像"
+      },
+      "name": "连续两次搜索"
+    },
+    {
+      "id": "golden-12",
+      "file": "fixtures/flows/web-golden/golden-12.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告",
+        "mode": "detail"
+      },
+      "name": "分支进入详情"
+    },
+    {
+      "id": "golden-13",
+      "file": "fixtures/flows/web-golden/golden-13.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "set-variable 与输出断言"
+    },
+    {
+      "id": "golden-14",
+      "file": "fixtures/flows/web-golden/golden-14.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "等待页面稳定"
+    },
+    {
+      "id": "golden-15",
+      "file": "fixtures/flows/web-golden/golden-15.flow.json",
+      "variant": "slow",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "慢加载结果"
+    },
+    {
+      "id": "golden-16",
+      "file": "fixtures/flows/web-golden/golden-16.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "读取输入框当前值"
+    },
+    {
+      "id": "golden-17",
+      "file": "fixtures/flows/web-golden/golden-17.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "详情关闭后消失"
+    },
+    {
+      "id": "golden-18",
+      "file": "fixtures/flows/web-golden/golden-18.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "两次加载更多"
+    },
+    {
+      "id": "golden-19",
+      "file": "fixtures/flows/web-golden/golden-19.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "初始摘要不可见"
+    },
+    {
+      "id": "golden-20",
+      "file": "fixtures/flows/web-golden/golden-20.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword": "报告"
+      },
+      "name": "有界滚动"
+    },
+    {
+      "id": "golden-21",
+      "file": "fixtures/flows/web-golden/golden-21.flow.json",
+      "variant": "baseline",
+      "variables": {
+        "keyword1": "报告",
+        "keyword2": "画像"
+      },
+      "name": "两次搜索并读取断言"
+    }
+  ]
+}

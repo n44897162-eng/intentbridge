@@ -1,3 +1,4 @@
+using System.IO;
 using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -80,7 +81,7 @@ public sealed class IpcServer : IDisposable
                 case "act":
                     return Success(id, _uia.Act(request["request"] ?? throw new InvalidOperationException("missing request")));
                 case "engine":
-                    return Success(id, _engine.Command(request["payload"] ?? throw new InvalidOperationException("missing payload")));
+                    return Success(id, _engine.Command(request["payload"] ?? throw new InvalidOperationException("missing payload")) ?? new JsonObject());
                 default:
                     return Error(id, "UNSUPPORTED_CAPABILITY", $"unknown command {command}");
             }

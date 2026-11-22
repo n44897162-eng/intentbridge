@@ -431,6 +431,10 @@ export async function runFlow(options: {
           break;
         }
         case 'AwaitCondition': {
+          // Honour the engine's backoff instead of busy-polling the DOM.
+          if (typeof output.poll_after_ms === 'number' && output.poll_after_ms > 0) {
+            await driver.sleep(Math.min(output.poll_after_ms, 1_000));
+          }
           const snapshot = await driver.snapshot();
           await driver.enrichVisuals?.(snapshot, null);
           response = timedSubmit(engine, plannerSamples, {

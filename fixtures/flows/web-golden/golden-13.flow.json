@@ -1,0 +1,282 @@
+{
+  "schema_version": "1.0.0",
+  "flow_id": "a1000013-0000-4000-8000-000000000013",
+  "name": "set-variable 与输出断言",
+  "description": "set-variable + read-text 输出进入变量 + 变量比较。",
+  "platform": "web",
+  "app_scope": {
+    "kind": "web-origin",
+    "value": "http://127.0.0.1:4317"
+  },
+  "variables": [
+    {
+      "name": "keyword",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "expected",
+      "type": "string"
+    },
+    {
+      "name": "text",
+      "type": "string"
+    }
+  ],
+  "permissions": [
+    "read-ui",
+    "read-screen",
+    "click",
+    "type",
+    "select",
+    "scroll",
+    "launch",
+    "navigate"
+  ],
+  "steps": [
+    {
+      "id": "open",
+      "action": "launch",
+      "name": "打开搜索页",
+      "risk": "normal",
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "textbox",
+                "name": "搜索",
+                "placeholder": "输入关键词",
+                "test_id": "keyword-input"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "keyword-input"
+              },
+              "structure": {
+                "path": ["main.page", "form#search-form", "input#keyword"]
+              },
+              "visual": {
+                "norm_rect": {
+                  "x": 0.18,
+                  "y": 0.2,
+                  "w": 0.42,
+                  "h": 0.05
+                },
+                "viewport": {
+                  "w": 1280,
+                  "h": 800
+                },
+                "device_scale": 1
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "app_id": "http://127.0.0.1:4317",
+        "url": "http://127.0.0.1:4317/",
+        "wait_ready": true
+      }
+    },
+    {
+      "id": "type-keyword",
+      "action": "input",
+      "name": "输入关键词",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "textbox",
+            "name": "搜索",
+            "placeholder": "输入关键词",
+            "test_id": "keyword-input"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "keyword-input"
+          },
+          "structure": {
+            "path": ["main.page", "form#search-form", "input#keyword"]
+          },
+          "visual": {
+            "norm_rect": {
+              "x": 0.18,
+              "y": 0.2,
+              "w": 0.42,
+              "h": 0.05
+            },
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "device_scale": 1
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "status",
+                "test_id": "results-summary"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "results-summary"
+              },
+              "structure": {
+                "path": ["main.page", "section#results-region", "p#results-summary"]
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        }
+      ],
+      "params": {
+        "value": "${keyword}",
+        "clear_first": true
+      }
+    },
+    {
+      "id": "submit",
+      "action": "click",
+      "name": "提交搜索",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "button",
+            "name": "搜索",
+            "test_id": "search-submit"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "search-submit"
+          },
+          "structure": {
+            "path": ["main.page", "form#search-form", "button#search-submit"]
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "postconditions": [
+        {
+          "kind": "element-present",
+          "target": {
+            "anchors": {
+              "semantic": {
+                "role": "status",
+                "test_id": "results-summary"
+              },
+              "native_identity": {
+                "kind": "web-test-id",
+                "value": "results-summary"
+              },
+              "structure": {
+                "path": ["main.page", "section#results-region", "p#results-summary"]
+              }
+            },
+            "confidence": {
+              "mode": "balanced"
+            }
+          }
+        },
+        {
+          "kind": "window-stable",
+          "min_stable_ms": 250
+        }
+      ],
+      "params": {
+        "button": "left",
+        "click_count": 1
+      }
+    },
+    {
+      "id": "set-expected",
+      "action": "set-variable",
+      "name": "设置期望",
+      "params": {
+        "name": "expected",
+        "value": "找到"
+      }
+    },
+    {
+      "id": "read-text",
+      "action": "read-text",
+      "name": "读取摘要",
+      "risk": "normal",
+      "target": {
+        "anchors": {
+          "semantic": {
+            "role": "status",
+            "test_id": "results-summary"
+          },
+          "native_identity": {
+            "kind": "web-test-id",
+            "value": "results-summary"
+          },
+          "structure": {
+            "path": ["main.page", "section#results-region", "p#results-summary"]
+          }
+        },
+        "confidence": {
+          "mode": "balanced"
+        }
+      },
+      "params": {
+        "output_variable": "text",
+        "max_chars": 300
+      }
+    },
+    {
+      "id": "assert-text",
+      "action": "assert",
+      "name": "输出包含期望",
+      "params": {
+        "condition": {
+          "kind": "variable-compare",
+          "variable": "text",
+          "operator": "contains",
+          "value": "${expected}"
+        }
+      }
+    },
+    {
+      "id": "done",
+      "action": "end",
+      "name": "完成",
+      "params": {
+        "status": "success"
+      }
+    }
+  ],
+  "created_by": "fixture-web",
+  "revision": 1,
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "updated_at": "2026-01-01T00:00:00.000Z",
+  "labels": {
+    "suite": "web-golden"
+  },
+  "defaults": {
+    "evidence_policy": {
+      "capture": "target",
+      "save_on": "failure",
+      "retention_days": 7,
+      "mask_text": true
+    }
+  }
+}

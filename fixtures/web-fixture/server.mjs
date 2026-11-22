@@ -43,11 +43,16 @@ const state = {
 };
 
 const CATALOG = [
-  { id: 'r-1', title: 'Alpha 季度报告', body: '收入与留存分析，包含渠道拆解。' },
-  { id: 'r-2', title: 'Beta 客户画像', body: '高价值客户分层与生命周期。' },
-  { id: 'r-3', title: 'Gamma 运营周报', body: '转化漏斗与实验结论汇总。' },
-  { id: 'r-4', title: 'Delta 数据质量', body: '缺失值、重复与延迟监控。' },
-  { id: 'r-5', title: 'Epsilon 摘要', body: '面向管理层的季度摘要。' },
+  {
+    id: 'r-1',
+    title: 'Alpha 季度报告',
+    body: '收入与留存分析，包含渠道拆解。',
+    category: 'quarterly',
+  },
+  { id: 'r-2', title: 'Beta 客户画像', body: '高价值客户分层与生命周期。', category: 'portrait' },
+  { id: 'r-3', title: 'Gamma 运营周报', body: '转化漏斗与实验结论汇总。', category: 'quarterly' },
+  { id: 'r-4', title: 'Delta 数据质量', body: '缺失值、重复与延迟监控。', category: 'quality' },
+  { id: 'r-5', title: 'Epsilon 摘要', body: '面向管理层的季度摘要。', category: 'quarterly' },
 ];
 
 function normalizeVariant(value) {
@@ -119,6 +124,20 @@ function searchForm(variant, labels) {
                data-testid="${labels.inputTestId}" autocomplete="off" />
         <button id="${labels.submitId}" type="submit" data-testid="${labels.submitTestId}">${labels.label}</button>
       </div>
+      <div class="filters">
+        <label for="report-type">报告类型
+          <select id="report-type" data-testid="report-type" aria-label="报告类型">
+            <option value="all">全部</option>
+            <option value="quarterly">季度报告</option>
+            <option value="portrait">客户画像</option>
+            <option value="quality">数据质量</option>
+          </select>
+        </label>
+        <label class="inline-check">
+          <input type="checkbox" id="include-archived" data-testid="include-archived" aria-label="包含归档" />
+          包含归档
+        </label>
+      </div>
       <p id="form-error" class="error" role="alert" data-testid="form-error" hidden></p>
     </form>`;
 }
@@ -152,7 +171,15 @@ function shadowWidget() {
             <div class="box" role="search" aria-label="组件内搜索">
               <input data-testid="shadow-input" aria-label="组件搜索" placeholder="组件内关键词" />
               <button data-testid="shadow-submit" aria-label="组件提交">提交</button>
-            </div>\`;
+            </div>
+            <p data-testid="shadow-result" role="status" hidden></p>\`;
+          const button = root.querySelector('button');
+          const input = root.querySelector('input');
+          button.addEventListener('click', () => {
+            const result = root.querySelector('[data-testid="shadow-result"]');
+            result.textContent = '已提交：' + (input?.value ?? '');
+            result.hidden = false;
+          });
         }
       });
     </script>`;
@@ -195,6 +222,7 @@ function bodyFor(variant) {
       <section id="results-region" aria-live="polite">
         <p id="results-summary" role="status" data-testid="${labels.summaryTestId}" hidden></p>
         <ul id="results" class="results" data-testid="results-list"></ul>
+        <button id="load-more" type="button" data-testid="load-more" class="ghost-button" hidden>加载更多</button>
       </section>
       ${showIframes ? iframes() : ''}
       <section id="reports-page" class="panel" data-testid="reports-page" hidden>
@@ -211,7 +239,7 @@ function bodyFor(variant) {
       <button type="button" data-testid="close-detail">关闭</button>
     </div>
   </div>
-  <footer class="footer">IntentBridge fixture · local only</footer>
+  <footer class="footer" data-testid="footer">IntentBridge fixture · local only</footer>
   <script>window.__IB_VARIANT__ = ${JSON.stringify(variant)};</script>
   <script src="/app.js"></script>`;
 }

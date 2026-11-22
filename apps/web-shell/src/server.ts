@@ -395,14 +395,26 @@ export async function createApp(options: AppOptions = {}): Promise<AppInstance> 
             validationPayload(execution),
           );
         }
-        const runId = runs.start(record.flow, {
-          variables: body.variables ?? {},
-          trigger: body.trigger ?? 'manual',
-          autoApprove: body.auto_approve === true,
-          pickFirst: body.pick === 'first',
-          ...(body.start_step_id ? { startStepId: body.start_step_id } : {}),
-          singleStep: body.single_step === true,
-        });
+        let runId: string;
+        try {
+          runId = runs.start(record.flow, {
+            variables: body.variables ?? {},
+            trigger: body.trigger ?? 'manual',
+            autoApprove: body.auto_approve === true,
+            pickFirst: body.pick === 'first',
+            ...(body.start_step_id ? { startStepId: body.start_step_id } : {}),
+            singleStep: body.single_step === true,
+          });
+        } catch (error) {
+          if (String((error as Error).message).includes('TOO_MANY_ACTIVE_RUNS')) {
+            throw new HttpError(
+              429,
+              'TOO_MANY_ACTIVE_RUNS',
+              '最多同时运行 2 个流程，请等待或取消其中一个',
+            );
+          }
+          throw error;
+        }
         json(res, 202, { run_id: runId, flow_id: flowId, revision: record.revision });
         return true;
       }

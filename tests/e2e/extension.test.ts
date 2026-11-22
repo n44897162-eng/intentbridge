@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -14,6 +14,7 @@ let context: BrowserContext | null = null;
 let worker: Worker;
 let extensionId = '';
 let userDataDir = '';
+let testExtensionDir = '';
 let fixture: ChildProcess | null = null;
 
 async function ensureFixture(): Promise<void> {
@@ -44,6 +45,17 @@ async function ensureFixture(): Promise<void> {
 
 beforeAll(async () => {
   if (!hasDisplay) return;
+  // Test build only: grant the fixture origin so automation can run without a
+  // human clicking the toolbar (activeTab is still the production path).
+  testExtensionDir = mkdtempSync(join(tmpdir(), 'ib-ext-build-'));
+  cpSync(EXTENSION, testExtensionDir, { recursive: true });
+  const testManifest = JSON.parse(readFileSync(join(EXTENSION, 'manifest.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  testManifest.host_permissions = ['http://127.0.0.1:4317/*'];
+  writeFileSync(join(testExtensionDir, 'manifest.json'), JSON.stringify(testManifest, null, 2));
+
   userDataDir = mkdtempSync(join(tmpdir(), 'ib-ext-'));
   context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
@@ -55,8 +67,8 @@ beforeAll(async () => {
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
-      `--disable-extensions-except=${EXTENSION}`,
-      `--load-extension=${EXTENSION}`,
+      `--disable-extensions-except=${testExtensionDir}`,
+      `--load-extension=${testExtensionDir}`,
     ],
     viewport: { width: 1280, height: 900 },
   });
@@ -71,6 +83,7 @@ afterAll(async () => {
   await context?.close();
   fixture?.kill('SIGTERM');
   if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+  if (testExtensionDir) rmSync(testExtensionDir, { recursive: true, force: true });
 });
 
 describe.skipIf(!hasDisplay)('MV3 extension (real Chromium)', () => {
@@ -110,6 +123,83 @@ describe.skipIf(!hasDisplay)('MV3 extension (real Chromium)', () => {
     expect(await page.getByText('授权当前站点').count()).toBe(1);
     await page.close();
   });
+
+  it('records a real user interaction and replays it end to end', async () => {
+    const fixturePage = await context!.newPage();
+    await fixturePage.goto(`${APP}/`, { waitUntil: 'domcontentloaded' });
+    await fixturePage.bringToFront();
+    const popup = await context!.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/popup.html`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    const tabId = await popup.evaluate(async (urlPattern) => {
+      const tabs = await chrome.tabs.query({ url: urlPattern });
+      return tabs[0]?.id ?? null;
+    }, `${APP}/*`);
+    expect(tabId).toBeTruthy();
+
+    await fixturePage.getByTestId('keyword-input').fill('报告');
+    await fixturePage.getByTestId('search-submit').click();
+    await fixturePage.waitForSelector('[data-testid="results-summary"]');
+    await fixturePage.waitForTimeout(300);
+
+    const started = await popup.evaluate(
+      (id) => chrome.runtime.sendMessage({ type: 'ib:start-recording', tabId: id }),
+      tabId as number,
+    );
+    expect((started as { ok: boolean }).ok).toBe(true);
+    await fixturePage.getByTestId('keyword-input').fill('季度');
+    await fixturePage.getByTestId('search-submit').click();
+    await fixturePage.waitForSelector('[data-testid="results-summary"]');
+    await fixturePage.waitForTimeout(600);
+
+    const stopped = (await popup.evaluate(() =>
+      chrome.runtime.sendMessage({ type: 'ib:stop-recording' }),
+    )) as {
+      ok: boolean;
+      flow?: { flow_id: string; steps: Array<{ action: string }> };
+      warnings?: string[];
+      error?: string;
+    };
+    expect(stopped.ok, stopped.error).toBe(true);
+    expect(stopped.flow).toBeTruthy();
+    expect(stopped.flow!.steps.length).toBeGreaterThanOrEqual(3);
+    expect(stopped.flow!.steps.map((step) => step.action)).toContain('input');
+    expect(stopped.flow!.steps.map((step) => step.action)).toContain('click');
+
+    const run = (await popup.evaluate(
+      (args) =>
+        chrome.runtime.sendMessage({
+          type: 'ib:run-flow',
+          flowId: args.flowId,
+          tabId: args.tabId,
+          variables: {},
+          autoApprove: true,
+        }),
+      { flowId: stopped.flow!.flow_id, tabId: tabId as number },
+    )) as { ok: boolean; error?: string };
+    expect(run.ok, run.error).toBe(true);
+
+    let runtime: { status?: string; summary?: { state: string }; error?: { message?: string } } =
+      {};
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const response = (await popup.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'ib:get-runtime' }),
+      )) as {
+        runtime: typeof runtime;
+      };
+      runtime = response.runtime ?? {};
+      if (runtime.status === 'finished') break;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+    }
+    expect(runtime.status).toBe('finished');
+    expect(runtime.summary?.state, runtime.error?.message).toBe('SUCCEEDED');
+    const stats = (await (await fetch(`${APP}/__stats`)).json()) as { submits: number };
+    expect(stats.submits).toBeGreaterThanOrEqual(1);
+    await popup.close();
+    await fixturePage.close();
+  }, 90_000);
 
   it('observes, records and performs DOM actions through the content script', async () => {
     const page: Page = await context!.newPage();
