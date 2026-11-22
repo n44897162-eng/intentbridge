@@ -80,6 +80,8 @@ spawnSync(
     '--exclude=*/bin',
     '--exclude=*/obj',
     '--exclude=.gradle',
+    '--exclude=**/.kotlin',
+    '--exclude=**/jniLibs',
     '--exclude=apps/web-extension/dist',
     '--exclude=pnpm-debug.log',
     '-czf',
